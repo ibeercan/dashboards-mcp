@@ -6,7 +6,7 @@ import { z } from "zod";
 import { buildTools } from "./tools.js";
 import { publishResources } from "./resource-handlers.js";
 
-const SERVER_VERSION = "1.3.0";
+const SERVER_VERSION = "1.3.2";
 const server = new McpServer({
   name: "dashboards-mcp",
   version: SERVER_VERSION,

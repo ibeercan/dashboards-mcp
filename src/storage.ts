@@ -153,6 +153,9 @@ export async function listDashboards(): Promise<DashboardMeta[]> {
 
   await readDir(dirs.defaults, true);
   await readDir(dirs.custom, false);
+  // Parallel reads made push order completion-dependent; keep listing output
+  // stable run-to-run (agents diff these lists between calls).
+  metas.sort((a, b) => a.id.localeCompare(b.id));
   return metas;
 }
 

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-10-03
+
+Release-hygiene patch (from flash-agent code review of v1.3.1 — verdict PASS, no CRITICAL/MAJOR).
+
+### Fixed
+- `serverInfo.version` advertised 1.3.0 on the v1.3.1 release — `SERVER_VERSION` now tracks package.json semantics again.
+- Stray UTF-8 BOM in `package.json` removed (npm tolerated it; strict `JSON.parse` would not).
+
+### Changed
+- Dashboard listing order is deterministic again: parallel reads made it file-read-completion dependent; metas now sort by id before returning.
+
 ## [1.3.1] - 2026-10-03
 
 ### Fixed
