@@ -1,6 +1,6 @@
 # dashboards-mcp
 
-MCP server for AI-assisted development and testing of [MDCplus Dashboards](../) — a full-stack BI dashboard designer and runtime for manufacturing.
+MCP server for AI-assisted development and testing of [Dispather (Диспетчер) Dashboards](../) — a full-stack BI dashboard designer and runtime for manufacturing.
 
  Lets an AI agent (via [MCP](https://modelcontextprotocol.io)) list, read, create, edit, delete, validate and export dashboards, and run frontend tests — against both file-based storage (dev) and the HTTP API (integration testing).
 
