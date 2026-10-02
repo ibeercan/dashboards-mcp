@@ -83,6 +83,34 @@ docker run -d --rm -p 3456:3456 \
   dashboards-mcp
 ```
 
+## Docker Compose
+
+```bash
+cd mcp-server
+docker compose up -d --build
+```
+
+Compose starts the server in HTTP mode on port `3456` by default:
+- mounts the backend `App_Data` into the container as `/data`;
+- points `DASHBOARDS_API_URL` at the live BI (`host.docker.internal:8014` — adjust to your setup).
+
+The agent connects over HTTP:
+
+```json
+{ "mcp": { "dashboards-mcp": { "type": "remote", "url": "http://localhost:3456/mcp" } } }
+```
+
+## Transports and SSE
+
+Two MCP transports are supported:
+
+| Transport | For | Enabled by |
+|---|---|---|
+| **stdio** | local agent, process launch | default |
+| **Streamable HTTP** | container / remote agent | `DASHBOARDS_MCP_HTTP_PORT` |
+
+Streamable HTTP is the current MCP transport: responses stream over SSE (`text/event-stream`) within the HTTP connection, so any SSE-capable MCP client works with it directly. The legacy (deprecated) SSE transport is intentionally not included — the MCP spec marks it obsolete.
+
 ## Environment variables
 
 | Variable | Required | Description |
