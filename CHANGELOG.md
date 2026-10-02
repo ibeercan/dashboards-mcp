@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-10-03
+
+Live-end-to-end validation of the full MCP surface against a running BI backend, plus the follow-up fix it surfaced.
+
+### Fixed
+- `validate_dashboard` / `dry_run_dashboard` no longer emit double-nested `innerJsonFields` — the helper already returned the flat shape and both call sites wrapped it twice.
+
+### Added
+- Demo dashboard builder (`scripts/build-demo-dashboard.mjs`) and the verified dashboard fixture (`scripts/demo-dashboard.json`): `dbo.Machine` table with a `table` component, created and validated through MCP over a live backend.
+- `/api/Data` diagnosis harness (`scripts/probe-data.mjs`) — pinpoints backend error 105 by comparing request variants.
+- Documented `query_data` payload contract: `dataFields` require per-field unique `Id` (1, 2, 3, …); backend `SqlQueryDefinitionBuilder` keys the lookup by it, and duplicate/absent ids (all defaulting to 0) cause a dictionary collision that surfaces as SQL error 105.
+
 ## [1.1.1] - 2026-10-03
 
 Security and correctness hardening from the 5-lane professional review (goal, QA, code quality, security, backend-parity).
@@ -66,6 +78,7 @@ Security and correctness hardening from the 5-lane professional review (goal, QA
 - MCP protocol smoke test (`scripts/smoke.cjs`): initialize, tools/list, tools/call.
 - README with tool reference and setup docs (v1.0.0).
 
+[1.1.2]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.1.2
 [1.1.1]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.1.1
 [1.1.0]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.1.0
 [1.0.0]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.0.0
