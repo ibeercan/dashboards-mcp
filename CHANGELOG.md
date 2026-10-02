@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-10-03
+
+Security and correctness hardening from the 5-lane professional review (goal, QA, code quality, security, backend-parity).
+
+### Security
+- Fixed path traversal: dashboard ids and `Title.Text` are validated as a single safe path segment (`assertSafeFileId`) — no separators, `..`, traversal, null bytes or Windows-reserved device names can escape `App_Data/Dashboards`.
+- Fixed command injection in `run_tests`: the runner is spawned with `shell: false` (`yarn.cmd` on Windows) so the test-path argument can never execute shell metacharacters.
+- HTTP transport now binds to `127.0.0.1` by default (override with `DASHBOARDS_MCP_HTTP_HOST`) and documents that the endpoint is unauthenticated.
+
+### Fixed
+- `create_dashboard` works on a fresh checkout: `App_Data/Dashboards` is created with `mkdir { recursive: true }` instead of failing with ENOENT.
+- `run_tests` points at the real frontend location (`../Dashboards/FrontendApp`) — previously always failed to find the directory.
+- Tool errors are returned as MCP `isError` results instead of crashing protocol framing with `-32602`.
+- Whitespace-only `Title.Text` falls back to `dashboard` (mirrors backend `IsNullOrWhiteSpace` instead of erroring).
+- `get_dashboard` falls back to the defaults directory for bare ids whose custom files do not exist (mirrors backend `GetById`).
+- Collision race: create claims the file with `wx` and retries the `" (N)"` suffix on `EEXIST` — concurrent creates can no longer overwrite each other.
+- Files are written without `Id`/`IsDefault` (the backend `DashboardDataModel` hydrates identity from the file name).
+- `list_dashboards` skips unreadable/corrupt JSON files with a warning (mirrors backend) instead of failing the whole call.
+- `validate_dashboard` no longer emits double-nested `innerJsonFields`.
+- HTTP errors now surface the response body (truncated) instead of a bare status code.
+- `npm run verify` is a real round-trip: serialized output is compared against the canonical original, not against itself — a schema change that drops data now fails the check.
+
+### Added
+- Permanent QA harness `scripts/qa.cjs` (`npm run qa`): 30 stdio scenarios — CRUD round-trip, collision/dry-run, `_default` protection, validation errors, unicode titles, path-traversal and command-injection abuse probes.
+
 ## [1.1.0] - 2026-10-03
 
 ### Added
@@ -41,4 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MCP protocol smoke test (`scripts/smoke.cjs`): initialize, tools/list, tools/call.
 - README with tool reference and setup docs (v1.0.0).
 
+[1.1.1]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.1.1
+[1.1.0]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.1.0
 [1.0.0]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.0.0

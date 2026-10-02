@@ -1,13 +1,14 @@
 {
   "name": "dashboards-mcp",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "MCP server for development and testing of Dispather BI dashboards",
   "type": "module",
   "bin": { "dashboards-mcp": "dist/index.js" },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "verify": "node dist/verify.js"
+    "verify": "node dist/verify.js",
+    "qa": "node scripts/qa.cjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",

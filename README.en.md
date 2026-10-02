@@ -66,6 +66,7 @@ npm run build
 ```bash
 npm run verify          # round-trip validation over all 10 default dashboard fixtures
 node scripts/smoke.cjs  # MCP smoke: initialize, tools/list, tools/call
+node scripts/qa.cjs     # full QA batch: 30 scenarios (CRUD, collisions, _default protection, traversal)
 ```
 
 ## Docker

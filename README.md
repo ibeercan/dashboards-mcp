@@ -66,6 +66,7 @@ npm run build
 ```bash
 npm run verify          # round-trip валидация всех 10 дефолтных дашбордов
 node scripts/smoke.cjs  # MCP smoke: initialize, tools/list, tools/call
+node scripts/qa.cjs     # полная QA-батарейка: 30 сценариев (CRUD, коллизии, защита _default, traversal)
 ```
 
 ## Docker
