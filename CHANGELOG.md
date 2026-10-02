@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-10-03
+
+Alignment with the current MCP specification (2026-07-28) and SDK 1.32 recommended patterns.
+
+### Added
+- Human-readable tool `title` on all 14 tools and a server `title` ("Dispather Dashboards MCP") + `websiteUrl` in `serverInfo` (spec 2025-11-25+).
+- Tool annotations (spec-compliant hints, no client capability required): `readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint` — read-only, query-like and write semantics are now declared for every tool.
+- Protocol-level `outputSchema` + `structuredContent` for tools with a stable result shape: `validate_dashboard`, `create_dashboard`, `update_dashboard`, `delete_dashboard`, `dry_run_dashboard`, `validate_layout`, `get_component_types`, `get_component_schema`, `export_dashboard`, `list_dashboards`.
+- `query_data` description now documents the unique `dataFields[].Id` requirement.
+
+### Changed
+- `tools/list` is deterministic: tools are registered sorted by name (spec SHOULD).
+- SDK floor raised to `^1.32.0` (already resolved by the lockfile).
+
 ## [1.1.2] - 2026-10-03
 
 Live-end-to-end validation of the full MCP surface against a running BI backend, plus the follow-up fix it surfaced.
