@@ -178,6 +178,26 @@ export async function updateDashboard(dashboard: DashboardDto): Promise<string> 
   return filePath;
 }
 
+export async function previewCreate(dashboard: DashboardDto): Promise<{ id: string; title: string; targetPath: string }> {
+  const dirs = await getDirs();
+  const title = dashboard.Title?.Text ?? "";
+  const id = await uniqueId(dirs, title);
+  return { id, title, targetPath: path.join(dirs.custom, id + FILE_EXTENSION) };
+}
+
+export async function previewUpdate(id: string): Promise<{ id: string; exists: boolean; readOnly: boolean }> {
+  if (!id || id.length === 0) throw new Error("Dashboard id is required");
+  if (isDefaultId(id)) return { id, exists: true, readOnly: true };
+  const dirs = await getDirs();
+  const exists = await fs
+    .access(path.join(dirs.custom, toFileId(id) + FILE_EXTENSION))
+    .then(
+      () => true,
+      () => false
+    );
+  return { id, exists, readOnly: false };
+}
+
 export async function deleteDashboard(id: string): Promise<boolean> {
   if (!id || id.length === 0) throw new Error("Dashboard id is required");
   if (isDefaultId(id)) throw new Error(`Default dashboard '${id}' cannot be deleted`);
