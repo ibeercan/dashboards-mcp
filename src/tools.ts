@@ -29,11 +29,13 @@ interface McpToolDef {
   name: string;
   description: string;
   inputSchema: Record<string, ZodTypeAny>;
-  run: (args: Record<string, unknown>) => Promise<{ content: Array<{ type: "text"; text: string }> }>;
+  run: (args: Record<string, unknown>) => Promise<ToolResult>;
 }
 
 interface ToolResult {
+  isError?: boolean;
   content: Array<{ type: "text"; text: string }>;
+  [key: string]: unknown;
 }
 
 function parseRaw(raw: string): DashboardDto {
@@ -51,9 +53,8 @@ function parseRaw(raw: string): DashboardDto {
   return result.data;
 }
 
-function validateInnerJson(dto: DashboardDto): Record<string, unknown> {
-  const decoded: Record<string, unknown> = { innerJsonFields: [] as string[] };
-  const innerFields = decoded["innerJsonFields"] as string[];
+function validateInnerJson(dto: DashboardDto): { innerJsonFields: string[] } {
+  const innerFields: string[] = [];
 
   const layout = parseInnerJson("Layout", dto.Layout);
   if (layout) {
@@ -69,7 +70,7 @@ function validateInnerJson(dto: DashboardDto): Record<string, unknown> {
       innerFields.push(`Components[${index}].Interactivity`);
     }
   });
-  return decoded;
+  return { innerJsonFields: innerFields };
 }
 
 function jsonResult(value: unknown): ToolResult {
@@ -78,19 +79,23 @@ function jsonResult(value: unknown): ToolResult {
 
 function errorResult(error: Error): ToolResult {
   return {
+    isError: true,
     content: [{ type: "text", text: JSON.stringify({ error: error.message }, null, 2) }],
   };
 }
 
 function frontendAppDir(): string {
-  return path.resolve("..", "FrontendApp");
+  return path.resolve("..", "Dashboards", "FrontendApp");
 }
 
 function runJest(testPath: string | undefined): Promise<{ exitCode: number; output: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn("yarn", ["test", ...(testPath ? [testPath] : [])], {
+    // Run the test runner directly (no shell) to keep the path argument inert;
+    // Windows resolves `yarn` through yarn.cmd.
+    const command = process.platform === "win32" ? "yarn.cmd" : "yarn";
+    const child = spawn(command, ["test", ...(testPath ? [testPath] : [])], {
       cwd: frontendAppDir(),
-      shell: true,
+      shell: false,
       env: { ...process.env },
     });
     let output = "";
@@ -255,7 +260,7 @@ export function buildTools(): ToolAllocator {
           return jsonResult(await apiGetTableNames(connection));
         }
         const tables = parseJsonArg("tables_json", tablesRaw) as Record<string, unknown>;
-        return           jsonResult(await apiGetColumnsInfo({ dataSourceConnection: connection, tables: tables["tables"] ?? tables }));
+        return jsonResult(await apiGetColumnsInfo({ dataSourceConnection: connection, tables: tables["tables"] ?? tables }));
       },
     },
     {
@@ -267,14 +272,32 @@ export function buildTools(): ToolAllocator {
         const wanted = String(args["type"]);
         const ids = (await listDashboards()).map((meta) => String(meta.id ?? ""));
         const examples: Array<{ dashboardId: string; options: unknown; interactivity: unknown }> = [];
+        const seenOptions = new Set<string>();
         for (const id of ids) {
           if (examples.length >= 2) break;
           const dto = await getDashboard(id);
           const component = dto.Components?.find(
             (c) => typeof c["Type"] === "string" && String(c["Type"]).toLowerCase() === wanted.toLowerCase()
           );
-          if (!component || examples.some((ex) => JSON.stringify(ex.options) === JSON.stringify(component.Options))) continue;
-          examples.push({ dashboardId: id, options: parseInnerJson("Options", component.Options), interactivity: parseInnerJson("Interactivity", component.Interactivity) });
+          if (!component) continue;
+          // Dedup on the raw Options string AND the parsed object so both
+          // identical raws and identical shapes are skipped.
+          const rawOptions = typeof component.Options === "string" ? component.Options : "";
+          if (rawOptions.length > 0) {
+            if (seenOptions.has(rawOptions)) continue;
+            seenOptions.add(rawOptions);
+          } else if (examples.length > 0) {
+            continue;
+          }
+          try {
+            examples.push({
+              dashboardId: id,
+              options: parseInnerJson("Options", component.Options),
+              interactivity: parseInnerJson("Interactivity", component.Interactivity),
+            });
+          } catch {
+            continue;
+          }
         }
         return jsonResult({ type: wanted, foundInDashboards: examples.length, examples });
       },

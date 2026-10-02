@@ -47,8 +47,36 @@ export function toFileId(id: string): string {
   return isDefaultId(id) ? id.slice(0, id.length - DEFAULT_SUFFIX.length) : id;
 }
 
-function metaDir(id: string): Promise<"defaults" | "custom"> {
-  return Promise.resolve(isDefaultId(id) ? "defaults" : "custom");
+/**
+ * Dashboard IDs are used verbatim as file names — they must be a single safe
+ * path segment. Rejects empty, path separators, traversal characters, and
+ * Windows-reserved names so user input can never escape the storage directory.
+ */
+export function assertSafeFileId(id: string): void {
+  if (id.length === 0 || id.trimEnd().length === 0) {
+    throw new Error("Dashboard id is required");
+  }
+  if (id !== id.trim() || id.endsWith(".")) {
+    throw new Error(`Dashboard id '${id}' is not a valid file name`);
+  }
+  if (/[/\\:]/.test(id) || id.includes("\0")) {
+    throw new Error(`Dashboard id '${id}' contains path-illegal characters`);
+  }
+  if (/^(con|prn|aux|com[1-9]|lpt[1-9])$/i.test(id)) {
+    throw new Error(`Dashboard id '${id}' is a reserved Windows device name`);
+  }
+}
+
+/** Writes only builtin fields understood by the backend (DashboardDataModel has no Id/IsDefault). */
+function toPersisted(dto: DashboardDto): DashboardDto {
+  const persisted: Record<string, unknown> = { ...dto };
+  delete persisted["Id"];
+  delete persisted["IsDefault"];
+  return persisted as unknown as DashboardDto;
+}
+
+function metaDir(id: string): "defaults" | "custom" {
+  return isDefaultId(id) ? "defaults" : "custom";
 }
 
 async function readDashboardFile(filePath: string): Promise<DashboardDto> {
@@ -109,7 +137,11 @@ export async function listDashboards(): Promise<DashboardMeta[]> {
           path: filePath,
         });
       } catch (e) {
-        throw new Error(`Dashboard file '${filePath}' is not valid JSON: ${(e as Error).message}`);
+        // Backend logs and skips unreadable files; mirror that so one corrupt file
+        // cannot break the whole listing.
+        process.stderr.write(
+          `[dashboards-mcp] skipping unreadable dashboard file '${filePath}': ${(e as Error).message}\n`
+        );
       }
     }
   };
@@ -142,39 +174,81 @@ async function uniqueId(dirs: StorageDirs, desired: string): Promise<string> {
 }
 
 export async function getDashboard(id: string): Promise<DashboardDto> {
-  if (id.length === 0) throw new Error("Dashboard id is required");
+  assertSafeFileId(id);
   const dirs = await getDirs();
-  const kind = await metaDir(id);
+  const kind = metaDir(id);
   const fileId = toFileId(id);
   const dir = kind === "defaults" ? dirs.defaults : dirs.custom;
-  const dto = await readDashboardFile(path.join(dir, fileId + FILE_EXTENSION));
-  if (kind === "defaults") {
-    dto.Id = fileId + DEFAULT_SUFFIX;
-    dto.IsDefault = true;
+  const targetPath = path.join(dir, fileId + FILE_EXTENSION);
+  try {
+    const dto = await readDashboardFile(targetPath);
+    if (kind === "defaults") {
+      dto.Id = fileId + DEFAULT_SUFFIX;
+      dto.IsDefault = true;
+    }
+    return dto;
+  } catch (e) {
+    // Backend DashboardsFileStorage.GetById falls back to the defaults storage
+    // when a bare (non-suffixed) id has no custom file.
+    if (kind === "custom" && (e as NodeJS.ErrnoException).code === "ENOENT") {
+      const defaultTarget = path.join(dirs.defaults, fileId + FILE_EXTENSION);
+      try {
+        const dto = await readDashboardFile(defaultTarget);
+        dto.Id = fileId + DEFAULT_SUFFIX;
+        dto.IsDefault = true;
+        return dto;
+      } catch {
+        // fall through to the original error
+      }
+    }
+    throw new Error(`Dashboard '${id}' not found`);
   }
-  return dto;
 }
 
+/** Mirrors backend GetNewDashboardId: whitespace-only title falls back to "dashboard". */
+function baseIdOf(title: string | undefined): string {
+  const raw = title ?? "";
+  return raw.trim().length === 0 ? DEFAULT_NEW_ID : raw;
+}
+
+/**
+ * Creates the file as a final atomic claim in the collision loop: `wx` fails
+ * with EEXIST when a concurrent create has already won, so the suffix retry
+ * preserves the backend `" (N)"` semantics without overwriting anything.
+ */
 export async function createDashboard(dashboard: DashboardDto): Promise<{ id: string; path: string }> {
+  const base = baseIdOf(dashboard.Title?.Text);
+  assertSafeFileId(base);
   const dirs = await getDirs();
-  const id = await uniqueId(dirs, dashboard.Title?.Text ?? "");
-  const filePath = path.join(dirs.custom, id + FILE_EXTENSION);
-  await fs.writeFile(filePath, JSON.stringify({ ...dashboard, Id: id }, null, 2), "utf8");
-  return { id, path: filePath };
+  await fs.mkdir(dirs.custom, { recursive: true });
+  for (;;) {
+    const id = await uniqueId(dirs, base);
+    const filePath = path.join(dirs.custom, id + FILE_EXTENSION);
+    try {
+      await fs.writeFile(filePath, JSON.stringify(toPersisted(dashboard), null, 2), {
+        encoding: "utf8",
+        flag: "wx",
+      });
+      return { id, path: filePath };
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      // Lost a race; loop recomputes the next free suffix.
+    }
+  }
 }
 
 export async function updateDashboard(dashboard: DashboardDto): Promise<string> {
   const id = dashboard.Id;
-  if (!id || id.length === 0) throw new Error("Dashboard id is required");
-  if (isDefaultId(id)) throw new Error(`Default dashboard '${id}' is read-only`);
+  assertSafeFileId(id ?? "");
+  if (isDefaultId(id as string)) throw new Error(`Default dashboard '${id}' is read-only`);
   const dirs = await getDirs();
-  const filePath = path.join(dirs.custom, toFileId(id) + FILE_EXTENSION);
+  const filePath = path.join(dirs.custom, toFileId(id as string) + FILE_EXTENSION);
   try {
     await fs.access(filePath);
   } catch {
     throw new Error(`Dashboard '${id}' not found`);
   }
-  await fs.writeFile(filePath, JSON.stringify({ ...dashboard, Id: id }, null, 2), "utf8");
+  await fs.writeFile(filePath, JSON.stringify(toPersisted(dashboard), null, 2), "utf8");
   return filePath;
 }
 
@@ -186,7 +260,7 @@ export async function previewCreate(dashboard: DashboardDto): Promise<{ id: stri
 }
 
 export async function previewUpdate(id: string): Promise<{ id: string; exists: boolean; readOnly: boolean }> {
-  if (!id || id.length === 0) throw new Error("Dashboard id is required");
+  assertSafeFileId(id);
   if (isDefaultId(id)) return { id, exists: true, readOnly: true };
   const dirs = await getDirs();
   const exists = await fs
@@ -199,7 +273,7 @@ export async function previewUpdate(id: string): Promise<{ id: string; exists: b
 }
 
 export async function deleteDashboard(id: string): Promise<boolean> {
-  if (!id || id.length === 0) throw new Error("Dashboard id is required");
+  assertSafeFileId(id);
   if (isDefaultId(id)) throw new Error(`Default dashboard '${id}' cannot be deleted`);
   const dirs = await getDirs();
   const filePath = path.join(dirs.custom, toFileId(id) + FILE_EXTENSION);
