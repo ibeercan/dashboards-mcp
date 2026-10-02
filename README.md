@@ -7,7 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/language-TypeScript-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Model Context Protocol](https://img.shields.io/badge/protocol-MCP-7c3aed)](https://modelcontextprotocol.io)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Tests: round-trip 10/10](https://img.shields.io/badge/round--trip-10%2F%2010-brightgreen)](#verification)
+[![Round-trip: 10/10 fixtures](https://img.shields.io/badge/round--trip-10%20of%2010%20fixtures-brightgreen)](#verification)
 
 [English](#overview) | [Русская версия](README.ru.md)
 
@@ -107,9 +107,9 @@ scripts/
 └── smoke.cjs       # MCP protocol smoke test
 ```
 
-## Roadmap
+## Release history
 
-Looking at `CHANGELOG.md` for release history. See planned improvements there.
+Release history and planned improvements live in [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
