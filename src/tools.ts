@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+﻿import { spawn } from "node:child_process";
 import path from "node:path";
 import { z, type ZodTypeAny } from "zod";
 import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
@@ -7,7 +7,7 @@ import {
   createDashboard,
   deleteDashboard,
   getDashboard,
-  listDashboards,
+  listDashboardsCached,
   previewCreate,
   previewUpdate,
   updateDashboard,
@@ -61,7 +61,10 @@ function parseRaw(raw: string): DashboardDto {
   const result = DashboardSchema.safeParse(normalizeKeys(parsed, 0));
   if (!result.success) {
     const issues = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
-    throw new Error(`Dashboard schema validation failed:\n${issues.join("\n")}`);
+    throw new Error(
+      `Dashboard schema validation failed:\n${issues.join("\n")}\n` +
+        `Hint: copy a working shape from get_component_schema, or reconcile key casing with the dashboard JSON in get_dashboard.`
+    );
   }
   return result.data;
 }
@@ -147,7 +150,7 @@ export function buildTools(): ToolAllocator {
         dashboards: z.union([z.array(z.record(z.unknown())), z.record(z.unknown())]),
       }).passthrough(),
       run: async () => {
-        const dashboards = await listDashboards();
+        const dashboards = await listDashboardsCached();
         const structured = z.array(z.record(z.unknown())).safeParse(dashboards).success
           ? { dashboards }
           : { dashboards: dashboards as unknown as Record<string, unknown> };
@@ -161,17 +164,21 @@ export function buildTools(): ToolAllocator {
       inputSchema: IdInput,
       annotations: READ,
       run: async (args) => {
-        const id = String(args["id"]);
-        try {
-          return jsonResult(await getDashboard(id));
-        } catch (fsError) {
-          try {
-            return jsonResult(await apiGetDashboard(id));
-          } catch (apiError) {
-            throw new Error(`File storage: ${(fsError as Error).message}; API: ${(apiError as Error).message}`);
-          }
-        }
-      },
+    const id = String(args["id"]);
+    try {
+      return jsonResult(await getDashboard(id));
+    } catch (fsError) {
+      try {
+        return jsonResult(await apiGetDashboard(id));
+      } catch (apiError) {
+        const message = `File storage: ${(fsError as Error).message}; API: ${(apiError as Error).message}`;
+        return jsonResult(
+          { error: message, hint: "Call list_dashboards first to pick an existing id (defaults end with `_default`)." },
+          { error: message, hint: "Call list_dashboards first to pick an existing id (defaults end with `_default`)." }
+        );
+      }
+    }
+  },
     },
     {
       name: "create_dashboard",
@@ -309,7 +316,7 @@ export function buildTools(): ToolAllocator {
       name: "query_data",
       title: "Execute data request",
       description:
-        "Execute a data request against the running backend: POST /api/Data. Pass the JSON body of DataRequest (DataSource with Connection+Queries, DataFields, Filter, Sorting, Datasets, Parameters) — copy it from the dashboard JSON DataSource. dataFields must carry unique per-field Ids (1, 2, 3, …).",
+        "Execute a data request against the running backend: POST /api/Data. Pass the JSON body of DataRequest (DataSource with Connection+Queries, DataFields, Filter, Sorting, Datasets, Parameters) вЂ” copy it from the dashboard JSON DataSource. dataFields must carry unique per-field Ids (1, 2, 3, вЂ¦).",
       inputSchema: { data_json: z.string().min(2) },
       annotations: QUERY,
       run: async (args) => jsonResult(await apiQueryData(parseJsonArg("data_json", args["data_json"]))),
@@ -348,12 +355,19 @@ export function buildTools(): ToolAllocator {
       }).passthrough(),
       run: async (args) => {
         const wanted = String(args["type"]);
-        const ids = (await listDashboards()).map((meta) => String(meta.id ?? ""));
+        const ids = (await listDashboardsCached()).map((meta) => String(meta.id ?? ""));
+        // Read candidates in parallel; sequential scan was the slow path for 10+ dashboards.
+        const candidates = (await Promise.all(
+          ids.map((id) =>
+            getDashboard(id)
+              .then((dto) => ({ id, dto }))
+              .catch(() => null)
+          )
+        )).filter((entry): entry is { id: string; dto: DashboardDto } => entry !== null);
         const examples: Array<{ dashboardId: string; options: unknown; interactivity: unknown }> = [];
         const seenOptions = new Set<string>();
-        for (const id of ids) {
+        for (const { id, dto } of candidates) {
           if (examples.length >= 2) break;
-          const dto = await getDashboard(id);
           const component = dto.Components?.find(
             (c) => typeof c["Type"] === "string" && String(c["Type"]).toLowerCase() === wanted.toLowerCase()
           );

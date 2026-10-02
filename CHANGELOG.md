@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-10-03
+
+### Added
+- **Resources** (`dashboards://{id}/summary`, `dashboards://{id}/components/{index}/options`, `dashboards://{id}/datasources/{index}/schema`, `dashboards://index`) — thin agent-friendly views so an agent can scan ~1 KB summaries instead of pulling 10–40 KB dashboard JSON through tools.
+- **Prompt recipe** `build_dashboard` — guided step-by-step workflow (inspect schemas → dry-run → create → query_data → cleanup) so the agent follows a checklist instead of inventing call sequences.
+- **TTL cache** (5 s, invalidated on create/update/delete) for dashboard listing; component-schema scan now reads candidate dashboards **in parallel**.
+- **Guided error hints** — schema-validation failures and `get_dashboard` misses now suggest the next concrete step (e.g. "copy a working shape from get_component_schema", "call list_dashboards first").
+
 ## [1.2.0] - 2026-10-03
 
 Alignment with the current MCP specification (2026-07-28) and SDK 1.32 recommended patterns.
@@ -92,6 +100,7 @@ Security and correctness hardening from the 5-lane professional review (goal, QA
 - MCP protocol smoke test (`scripts/smoke.cjs`): initialize, tools/list, tools/call.
 - README with tool reference and setup docs (v1.0.0).
 
+[1.3.0]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.3.0
 [1.1.2]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.1.2
 [1.1.1]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.1.1
 [1.1.0]: https://github.com/ibeercan/dashboards-mcp/releases/tag/v1.1.0

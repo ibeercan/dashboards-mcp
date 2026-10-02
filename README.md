@@ -109,6 +109,20 @@ opencode (stdio):
 { "mcp": { "dashboards-mcp": { "type": "remote", "url": "http://localhost:3456/mcp" } } }
 ```
 
+## Ресурсы и промпты (v1.3.0)
+
+Кроме 14 инструментов сервер объявляет **resources** — тонкие представления для сканирования без тяжёлых payload:
+
+| URI | Что даёт |
+|---|---|
+| dashboards://index | список всех дашбордов (id, имя, дефолтный ли) |
+| dashboards://{id}/summary | мета: компоненты, типы, источники — сотни байт вместо 10–40 KB |
+| dashboards://{id}/components/{index}/options | расшифрованные Options/Interactivity одного компонента |
+| dashboards://{id}/datasources/{index}/schema | колонки/связи одного источника данных |
+
+И **prompt** uild_dashboard — готовый пошаговый рецепт сборки дашборда (схемы → dry-run → создание → проверка данных).
+
+
 ## Docker
 
 ```bash

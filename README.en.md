@@ -109,6 +109,20 @@ Any MCP client (HTTP):
 { "mcp": { "dashboards-mcp": { "type": "remote", "url": "http://localhost:3456/mcp" } } }
 ```
 
+## Resources and prompts (v1.3.0)
+
+Besides the 14 tools the server exposes **resources** — thin views for scanning without heavy payloads:
+
+| URI | What it gives |
+|---|---|
+| dashboards://index | every dashboard (id, name, isDefault) |
+| dashboards://{id}/summary | meta: components, types, sources — bytes instead of 10-40 KB |
+| dashboards://{id}/components/{index}/options | decoded Options/Interactivity of one component |
+| dashboards://{id}/datasources/{index}/schema | columns/relations of one data source |
+
+And a **prompt** uild_dashboard — a ready-made step-by-step recipe (schemas -> dry-run -> create -> verify data).
+
+
 ## Docker
 
 ```bash
