@@ -24,7 +24,13 @@ async function request<T>(
     signal: AbortSignal.timeout(Number(process.env["DASHBOARDS_API_TIMEOUT_MS"] ?? 60000)),
   });
   if (!response.ok) {
-    throw new Error(`${method} ${url} failed: HTTP ${response.status}`);
+    let body = "";
+    try {
+      body = (await response.text()).slice(0, 500);
+    } catch {
+      // body unavailable — status alone still tells the caller something
+    }
+    throw new Error(`${method} ${url} failed: HTTP ${response.status}${body ? ` — ${body}` : ""}`);
   }
   const envelope = (await response.json()) as Record<string, unknown>;
   // Backend serializes the envelope in camelCase ({data, error}/file fields keep PascalCase) — accept both.
