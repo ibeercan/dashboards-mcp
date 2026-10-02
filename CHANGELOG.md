@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-10-03
+
+Hotfix from post-release review of v1.4.0 (Oracle, verdict FAIL → fixed).
+
+### Fixed
+
+- **api-create id trust**: the id returned by `create_dashboard` now comes from the backend response payload when present (the backend recomputes the stored id from the original untrimmed Title.Text); preflight id stays the fallback.
+- **Title rules exactness**: api-mode id allocation no longer trims `Title.Text` before use (backend keeps it verbatim; whitespace falls back to `dashboard`), and list-id comparisons are trimmed and accept both `Id`/`Name` casings.
+- Removed dead `TemplateParams`/`paramsOf` from resource handlers.
+
+### Changed
+
+- README (RU/EN): `dashboards://stats` documented in the resources table.
+
+### Known limitation (documented, not fixable client-side)
+
+- Backend id allocation is not atomic: two concurrent creates with the same title can race and one may overwrite the other (`DashboardsFileBaseStorage` writes by filename without an exclusive-create flag). Requires an exclusive-create/retry in the backend.
+
 ## [1.4.0] - 2026-10-03
 
 ### Added

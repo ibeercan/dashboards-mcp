@@ -143,20 +143,27 @@ function apiMode(): boolean {
   return Boolean(process.env["DASHBOARDS_API_URL"]);
 }
 
-// Mirrors backend GetNewDashboardId against the LIVE list (Title.Text verbatim,
-// case-insensitive uniqueness, "(N)" collision suffix, whitespace fallback).
+// Backend GetNewDashboardId uses Title.Text VERBATIM (no trim) with an
+// IsNullOrWhiteSpace fallback to "dashboard"; ids come back from the API in
+// either casing depending on serializer settings, so both are accepted.
 async function uniqueApiId(dto: DashboardDto): Promise<string> {
-  // Title.Text verbatim — same as backend GetNewDashboardId; storage.titleOf
-  // reads from disk and does not apply here (dto already parsed in memory).
-  const base = dto.Title?.Text?.trim() || "dashboard";
+  const rawTitle = dto.Title?.Text ?? "";
+  const base = rawTitle.trim().length === 0 ? "dashboard" : rawTitle;
   const existed = new Set(
-    (await apiListDashboards()).map((meta) => String(meta.Id ?? "").toLowerCase())
+    (await apiListDashboards()).map((meta) => String(meta.Id ?? meta.Name ?? "").trim().toLowerCase())
   );
   if (!existed.has(base.toLowerCase())) return base;
   for (let counter = 1; ; counter += 1) {
     const candidate = `${base} (${counter})`;
     if (!existed.has(candidate.toLowerCase())) return candidate;
   }
+}
+
+// The backend is the source of truth for the stored id (it recomputes it from
+// Title.Text); if its response carries an id, that one wins over our preflight.
+function idFromApiPayload(payload: DashboardDto | null | undefined, fallback: string): string {
+  const remoteId = typeof payload?.Id === "string" ? payload.Id.trim() : "";
+  return remoteId.length > 0 ? remoteId : fallback;
 }
 
 export interface ToolAllocator {
@@ -233,8 +240,9 @@ export function buildTools(): ToolAllocator {
         const dto = parseRaw(String(args["dashboard_json"]));
         validateInnerJson(dto);
         if (apiMode()) {
-          const id = await uniqueApiId(dto);
-          await apiCreateDashboard({ ...dto, Id: id });
+          const previewId = await uniqueApiId(dto);
+          const stored = await apiCreateDashboard({ ...dto, Id: previewId });
+          const id = idFromApiPayload(stored, previewId);
           return jsonResult({ id, source: "api" }, { id, path: id, source: "api" });
         }
         const created = await createDashboard(dto);
@@ -370,9 +378,9 @@ export function buildTools(): ToolAllocator {
           // Live-backend preview: id allocation mirrors backend rules against the
           // CURRENT remote list, so "(N)" can differ from a stale file listing.
           if (id.length > 0) {
-            const exists = (await apiListDashboards()).some(
-              (meta) => String(meta.Id ?? "").toLowerCase() === id.toLowerCase()
-            );
+  const exists = (await apiListDashboards()).some(
+    (meta) => String(meta.Id ?? meta.Name ?? "").trim().toLowerCase() === id.trim().toLowerCase()
+  );
             preview = { operation: "update", id, exists, readOnly: id.toLowerCase().endsWith("_default") };
           } else {
             preview = { operation: "create", id: await uniqueApiId(dto), target: "live backend" };

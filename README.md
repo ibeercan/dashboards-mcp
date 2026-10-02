@@ -115,6 +115,7 @@ opencode (stdio):
 
 | URI | Что даёт |
 |---|---|
+| dashboards://stats | счётчики вызовов инструментов (count/errors/средняя задержка) |
 | dashboards://index | список всех дашбордов (id, имя, дефолтный ли) |
 | dashboards://{id}/summary | мета: компоненты, типы, источники — сотни байт вместо 10–40 KB |
 | dashboards://{id}/components/{index}/options | расшифрованные Options/Interactivity одного компонента |
@@ -148,6 +149,8 @@ docker run -d --rm -p 3456:3456 \
 | `DASHBOARDS_API_URL` | нет | базовый URL живого бэкенда |
 | `DASHBOARDS_MCP_HTTP_PORT` | нет | включает Streamable HTTP вместо stdio |
 | `DASHBOARDS_MCP_HTTP_HOST` | нет | хост HTTP-сервера, по умолчанию `127.0.0.1` |
+| `DASHBOARDS_MCP_LOG` | нет | уровень stderr-логов `debug`/`info`/`warn`/`error`, `off` выключает |
+| `DASHBOARDS_MCP_HTTP_TOKEN` | нет | bearer-токен HTTP-режима: запрос без `Authorization: Bearer <token>` получает 401, метаданные RFC 9728 на `/.well-known/oauth-protected-resource` |
 | `DASHBOARDS_API_TIMEOUT_MS` | нет | таймаут API, по умолчанию `60000` |
 
 ## Структура проекта

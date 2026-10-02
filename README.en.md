@@ -115,6 +115,7 @@ Besides the 14 tools the server exposes **resources** — thin views for scannin
 
 | URI | What it gives |
 |---|---|
+| dashboards://stats | per-tool call counters (count/errors/avg latency) |
 | dashboards://index | every dashboard (id, name, isDefault) |
 | dashboards://{id}/summary | meta: components, types, sources — bytes instead of 10-40 KB |
 | dashboards://{id}/components/{index}/options | decoded Options/Interactivity of one component |
@@ -148,6 +149,8 @@ Or run everything at once with Compose (`docker compose up -d --build`): mounts 
 | `DASHBOARDS_API_URL` | no | live backend base URL |
 | `DASHBOARDS_MCP_HTTP_PORT` | no | enables Streamable HTTP instead of stdio |
 | `DASHBOARDS_MCP_HTTP_HOST` | no | HTTP host, default `127.0.0.1` |
+| `DASHBOARDS_MCP_LOG` | no | stderr log level `debug`/`info`/`warn`/`error`, `off` disables |
+| `DASHBOARDS_MCP_HTTP_TOKEN` | no | bearer token for HTTP mode: requests without `Authorization: Bearer <token>` get 401, RFC 9728 metadata at `/.well-known/oauth-protected-resource` |
 | `DASHBOARDS_API_TIMEOUT_MS` | no | API timeout, default `60000` |
 
 ## Project layout

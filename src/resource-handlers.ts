@@ -8,25 +8,14 @@ import { toolStatsSnapshot } from "./logger.js";
 /**
  * Thin read-only resources for agents: summaries first, heavy payload parts
  * addressed by URI. URIs:
+ *   dashboards://index
+ *   dashboards://stats
  *   dashboards://{id}/summary
  *   dashboards://{id}/components/{index}/options
  *   dashboards://{id}/datasources/{index}/schema
  */
 
-interface TemplateParams {
-  id: string;
-  index?: string;
-}
-
 type TemplateReader = (uri: URL, vars: Variables) => Promise<{ contents: Array<{ uri: string; mimeType: string; text: string }> }>;
-
-// URI templates use plain `{param}` captures (no explode), so match() yields
-// single strings per variable — safe to decode + String() here.
-function paramsOf(vars: Variables): TemplateParams {
-  const id = decodeURIComponent(String(vars["id"]));
-  const index = vars["index"] !== undefined ? String(vars["index"]) : undefined;
-  return { id, index };
-}
 
 export function publishResources(server: McpServer): void {
   const template = (name: string, uri: string, meta: Record<string, unknown>, reader: TemplateReader) =>
