@@ -18,10 +18,12 @@ import {
   apiGetColumnsInfo,
   apiGetDashboard,
   apiGetTableNames,
+  apiListDashboards,
   apiQueryData,
   apiUpdateDashboard,
 } from "./api-client.js";
 import type { DashboardDto } from "./types.js";
+import { obs } from "./logger.js";
 
 const IdInput: Record<string, ZodTypeAny> = { id: z.string().min(1) };
 const RawJsonInput: Record<string, ZodTypeAny> = { dashboard_json: z.string().min(2) };
@@ -134,6 +136,29 @@ function parseJsonArg(name: string, raw: unknown): unknown {
   }
 }
 
+// When the live BI backend URL is configured, WRITE tools operate on the system
+// of record over HTTP; file storage remains the read path (get/list_CACHE) and
+// the offline development mode. Read tools stay file-first with API fallback.
+function apiMode(): boolean {
+  return Boolean(process.env["DASHBOARDS_API_URL"]);
+}
+
+// Mirrors backend GetNewDashboardId against the LIVE list (Title.Text verbatim,
+// case-insensitive uniqueness, "(N)" collision suffix, whitespace fallback).
+async function uniqueApiId(dto: DashboardDto): Promise<string> {
+  // Title.Text verbatim — same as backend GetNewDashboardId; storage.titleOf
+  // reads from disk and does not apply here (dto already parsed in memory).
+  const base = dto.Title?.Text?.trim() || "dashboard";
+  const existed = new Set(
+    (await apiListDashboards()).map((meta) => String(meta.Id ?? "").toLowerCase())
+  );
+  if (!existed.has(base.toLowerCase())) return base;
+  for (let counter = 1; ; counter += 1) {
+    const candidate = `${base} (${counter})`;
+    if (!existed.has(candidate.toLowerCase())) return candidate;
+  }
+}
+
 export interface ToolAllocator {
   readonly tools: McpToolDef[];
 }
@@ -164,42 +189,54 @@ export function buildTools(): ToolAllocator {
       inputSchema: IdInput,
       annotations: READ,
       run: async (args) => {
-    const id = String(args["id"]);
-    try {
-      return jsonResult(await getDashboard(id));
-    } catch (fsError) {
-      try {
-        const apiDto = await apiGetDashboard(id);
-        // MCP spec: tool-originated failures must set isError so flag-relying
-        // clients surface them; the hint stays in content for the agent.
-        if (!apiDto) {
-          const hint = "Call list_dashboards first to pick an existing id (defaults end with `_default`).";
-          return { isError: true, content: [{ type: "text", text: JSON.stringify({ error: `Dashboard '${id}' not found`, hint }, null, 2) }] };
+        const id = String(args["id"]);
+        try {
+          return jsonResult(await getDashboard(id));
+        } catch (fsError) {
+          try {
+            const apiDto = await apiGetDashboard(id);
+            // MCP spec: tool-originated failures must set isError so flag-relying
+            // clients surface them; the hint stays in content for the agent.
+            if (!apiDto) {
+              const hint = "Call list_dashboards first to pick an existing id (defaults end with `_default`).";
+              return {
+                isError: true,
+                content: [{ type: "text", text: JSON.stringify({ error: `Dashboard '${id}' not found`, hint }, null, 2) }],
+              };
+            }
+            return jsonResult(apiDto);
+          } catch (apiError) {
+            const message = `File storage: ${(fsError as Error).message}; API: ${(apiError as Error).message}`;
+            return {
+              isError: true,
+              content: [{
+                type: "text",
+                text: JSON.stringify(
+                  { error: message, hint: "Call list_dashboards first to pick an existing id (defaults end with `_default`)." },
+                  null, 2,
+                ),
+              }],
+            };
+          }
         }
-        return jsonResult(apiDto);
-      } catch (apiError) {
-        const message = `File storage: ${(fsError as Error).message}; API: ${(apiError as Error).message}`;
-        return {
-          isError: true,
-          content: [{ type: "text", text: JSON.stringify(
-            { error: message, hint: "Call list_dashboards first to pick an existing id (defaults end with `_default`)." },
-            null, 2,
-          ) }],
-        };
-      }
-    }
-  },
+      },
     },
     {
       name: "create_dashboard",
       title: "Create dashboard",
-      description: "Create a new custom dashboard. ID is generated from Title.Text following backend rules.",
+      description:
+        "Create a new custom dashboard. ID is generated from Title.Text following backend rules. With DASHBOARDS_API_URL set, the dashboard is created on the live backend; otherwise in App_Data file storage.",
       inputSchema: RawJsonInput,
       annotations: WRITE(),
       outputSchema: z.object({ id: z.string(), path: z.string() }).passthrough(),
       run: async (args) => {
         const dto = parseRaw(String(args["dashboard_json"]));
         validateInnerJson(dto);
+        if (apiMode()) {
+          const id = await uniqueApiId(dto);
+          await apiCreateDashboard({ ...dto, Id: id });
+          return jsonResult({ id, source: "api" }, { id, path: id, source: "api" });
+        }
         const created = await createDashboard(dto);
         return jsonResult(created, created as Record<string, unknown>);
       },
@@ -207,13 +244,21 @@ export function buildTools(): ToolAllocator {
     {
       name: "update_dashboard",
       title: "Update dashboard",
-      description: "Update an existing custom dashboard (by Id in the JSON). Default dashboards are read-only.",
+      description:
+        "Update an existing custom dashboard (by Id in the JSON). Default dashboards are read-only on both targets. With DASHBOARDS_API_URL set, the update goes to the live backend; otherwise to file storage.",
       inputSchema: RawJsonInput,
       annotations: WRITE(),
       outputSchema: z.object({ updated: z.string() }).passthrough(),
       run: async (args) => {
         const dto = parseRaw(String(args["dashboard_json"]));
         validateInnerJson(dto);
+        if (apiMode()) {
+          if (typeof dto.Id !== "string" || dto.Id.length === 0) {
+            throw new Error("Dashboard id is required: set Id (or Title) in the JSON, or ask for the id via list_dashboards.");
+          }
+          await apiUpdateDashboard(dto);
+          return jsonResult({ updated: dto.Id, source: "api" }, { updated: dto.Id, source: "api" });
+        }
         const updatedPath = await updateDashboard(dto);
         return jsonResult({ updated: updatedPath }, { updated: updatedPath });
       },
@@ -221,12 +266,18 @@ export function buildTools(): ToolAllocator {
     {
       name: "delete_dashboard",
       title: "Delete dashboard",
-      description: "Delete a custom dashboard by id. Default (`_default`) dashboards cannot be deleted.",
+      description:
+        "Delete a custom dashboard by id. Default (`_default`) dashboards cannot be deleted on either target. With DASHBOARDS_API_URL set, deletion hits the live backend; otherwise file storage.",
       inputSchema: IdInput,
       annotations: WRITE(true),
       outputSchema: z.object({ id: z.string(), deleted: z.boolean() }).passthrough(),
       run: async (args) => {
         const id = String(args["id"]);
+        if (apiMode()) {
+          const ok = await apiDeleteDashboard(id);
+          if (!ok) throw new Error(`Backend refused to delete '${id}' (default dashboards are read-only there too).`);
+          return jsonResult({ id, deleted: true, source: "api" }, { id, deleted: true, source: "api" });
+        }
         const deleted = await deleteDashboard(id);
         return jsonResult({ id, deleted }, { id, deleted });
       },
@@ -314,10 +365,24 @@ export function buildTools(): ToolAllocator {
         const dto = parseRaw(String(args["dashboard_json"]));
         const { innerJsonFields } = validateInnerJson(dto);
         const id = typeof dto.Id === "string" && dto.Id.length > 0 ? dto.Id : "";
-        const preview =
-          id.length > 0
-            ? { operation: "update", ...(await previewUpdate(id)) }
-            : { operation: "create", ...(await previewCreate(dto)) };
+        let preview: Record<string, unknown>;
+        if (apiMode()) {
+          // Live-backend preview: id allocation mirrors backend rules against the
+          // CURRENT remote list, so "(N)" can differ from a stale file listing.
+          if (id.length > 0) {
+            const exists = (await apiListDashboards()).some(
+              (meta) => String(meta.Id ?? "").toLowerCase() === id.toLowerCase()
+            );
+            preview = { operation: "update", id, exists, readOnly: id.toLowerCase().endsWith("_default") };
+          } else {
+            preview = { operation: "create", id: await uniqueApiId(dto), target: "live backend" };
+          }
+        } else {
+          preview =
+            id.length > 0
+              ? { operation: "update", ...(await previewUpdate(id)) }
+              : { operation: "create", ...(await previewCreate(dto)) };
+        }
         const result = { valid: true, innerJsonFields, preview };
         return jsonResult(result, result);
       },
@@ -423,10 +488,15 @@ export function buildTools(): ToolAllocator {
   const wrapped: McpToolDef[] = defs.map((tool) => ({
     ...tool,
     run: async (args: Record<string, unknown>): Promise<ToolResult> => {
+      const startedAt = Date.now();
       try {
-        return await tool.run(args);
+        const result = await tool.run(args);
+        obs.toolCall(tool.name, Date.now() - startedAt, result.isError === true);
+        return result;
       } catch (e) {
-        return errorResult(e as Error);
+        const failure = errorResult(e as Error);
+        obs.toolCall(tool.name, Date.now() - startedAt, true);
+        return failure;
       }
     },
   }));

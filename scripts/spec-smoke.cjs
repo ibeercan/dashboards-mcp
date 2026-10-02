@@ -3,10 +3,12 @@ const p = cp.spawn(process.execPath, ["dist/index.js"], { stdio: ["pipe", "pipe"
 let buf = "";
 let id = 0;
 const map = {};
+const RPC_TIMEOUT_MS = 30_000;
 function rpc(m, params) {
-  return new Promise((r) => {
+  return new Promise((r, reject) => {
     const i = ++id;
-    map[i] = r;
+    const timer = setTimeout(() => reject(new Error(`rpc ${m} timed out after ${RPC_TIMEOUT_MS}ms`)), RPC_TIMEOUT_MS);
+    map[i] = (msg) => { clearTimeout(timer); r(msg); };
     p.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: i, method: m, params }) + "\n");
   });
 }
