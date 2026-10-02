@@ -1,0 +1,166 @@
+{
+  "Title": {
+    "Text": "QA MCP Демо 9.1"
+  },
+  "DataSources": [
+    {
+      "Id": 0,
+      "Name": "DataSource-0",
+      "SourceType": 0,
+      "DataBase": {
+        "Connection": {
+          "Name": "Industry"
+        },
+        "Queries": [
+          {
+            "Id": 0,
+            "Name": "Query",
+            "Tables": [
+              {
+                "Id": 0,
+                "Name": "Machine",
+                "Schema": "dbo",
+                "DisplayedName": "Оборудование"
+              }
+            ],
+            "Columns": [
+              {
+                "Id": 1784451349,
+                "Name": "ID",
+                "TableId": 0,
+                "TableName": null,
+                "FormulaText": null,
+                "FormulaValueTypeValidated": null,
+                "FormulaAggregated": false,
+                "DisplayedName": "ID",
+                "ValueType": {
+                  "Name": "Integer",
+                  "ValueType": 1,
+                  "IsAutoDetectValueType": false,
+                  "IsNullable": true,
+                  "CharsMaxLength": 1000
+                },
+                "Aggregate": null
+              },
+              {
+                "Id": 482680917,
+                "Name": "Name",
+                "TableId": 0,
+                "TableName": null,
+                "FormulaText": null,
+                "FormulaValueTypeValidated": null,
+                "FormulaAggregated": false,
+                "DisplayedName": "Name",
+                "ValueType": {
+                  "Name": "String",
+                  "ValueType": 0,
+                  "IsAutoDetectValueType": false,
+                  "IsNullable": true,
+                  "CharsMaxLength": 1000
+                },
+                "Aggregate": null
+              },
+              {
+                "Id": 982337268,
+                "Name": "ShortName",
+                "TableId": 0,
+                "TableName": null,
+                "FormulaText": null,
+                "FormulaValueTypeValidated": null,
+                "FormulaAggregated": false,
+                "DisplayedName": "ShortName",
+                "ValueType": {
+                  "Name": "String",
+                  "ValueType": 0,
+                  "IsAutoDetectValueType": false,
+                  "IsNullable": true,
+                  "CharsMaxLength": 1000
+                },
+                "Aggregate": null
+              },
+              {
+                "Id": 1546710919,
+                "Name": "MoneyLoose",
+                "TableId": 0,
+                "TableName": null,
+                "FormulaText": null,
+                "FormulaValueTypeValidated": null,
+                "FormulaAggregated": false,
+                "DisplayedName": "MoneyLoose",
+                "ValueType": {
+                  "Name": "Double",
+                  "ValueType": 5,
+                  "IsAutoDetectValueType": false,
+                  "IsNullable": true,
+                  "CharsMaxLength": 1000
+                },
+                "Aggregate": null
+              }
+            ],
+            "Relations": [],
+            "Grouping": [],
+            "Filter": null,
+            "GroupFilter": null,
+            "RowsLimit": 100,
+            "Sorting": [],
+            "Parameters": []
+          }
+        ]
+      },
+      "WebApi": null,
+      "Federation": null
+    }
+  ],
+  "Components": [
+    {
+      "Id": 1,
+      "Type": "table",
+      "DataSourceId": 0,
+      "QueryId": 0,
+      "DataFields": [
+        {
+          "id": 1,
+          "columnId": 482680917,
+          "typeEnum": 0,
+          "aggregateType": null,
+          "dateTimeInterval": null,
+          "isHidden": false,
+          "order": 0,
+          "visualizationType": null,
+          "options": "{\"customFieldName\":{\"value\":\"Оборудование\",\"onlyVisual\":true},\"tableColumnSize\":{\"value\":250,\"onlyVisual\":true}}",
+          "children": null
+        },
+        {
+          "id": 2,
+          "columnId": 982337268,
+          "typeEnum": 0,
+          "aggregateType": null,
+          "dateTimeInterval": null,
+          "isHidden": false,
+          "order": 1,
+          "visualizationType": null,
+          "options": "{\"tableColumnSize\":{\"value\":180,\"onlyVisual\":true}}",
+          "children": null
+        },
+        {
+          "id": 3,
+          "columnId": 1546710919,
+          "typeEnum": 1,
+          "aggregateType": 1,
+          "dateTimeInterval": null,
+          "isHidden": false,
+          "order": 2,
+          "visualizationType": null,
+          "options": "{\"tableColumnSize\":{\"value\":140,\"onlyVisual\":true}}",
+          "children": null
+        }
+      ],
+      "Filter": null,
+      "Options": "{\"name\":\"table-0\",\"isHeaderVisible\":true,\"tableColumnHeadersVisible\":true,\"tableWordWrap\":false,\"tableColumnFiltersVisible\":true,\"conditionalFormattingRules\":[]}",
+      "Interactivity": "{\"masterFilter\":2,\"allowEmptyMasterFilter\":true}"
+    }
+  ],
+  "Layout": "{\"lg\":[{\"type\":0,\"static\":false,\"isResizable\":true,\"isDraggable\":true,\"minW\":5,\"minH\":5,\"maxW\":60,\"maxH\":48,\"i\":\"1\",\"x\":0,\"y\":0,\"w\":30,\"h\":24,\"resizeHandles\":[\"s\"]}]}",
+  "Parameters": [],
+  "Options": ""
+}
