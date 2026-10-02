@@ -4,13 +4,22 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { createServer } from "node:http";
 import { buildTools } from "./tools.js";
 
-const server = new McpServer({ name: "dashboards-mcp", version: "1.1.0" });
+const SERVER_VERSION = "1.2.0";
+const server = new McpServer({
+  name: "dashboards-mcp",
+  version: SERVER_VERSION,
+  title: "Dispather Dashboards MCP",
+  websiteUrl: "https://github.com/ibeercan/dashboards-mcp",
+});
 
-for (const tool of buildTools().tools) {
+// Deterministic tools/list order (spec 2026-07-28): sort by name before registering.
+for (const tool of [...buildTools().tools].sort((a, b) => a.name.localeCompare(b.name))) {
   server.registerTool(tool.name, {
-    title: tool.name,
+    title: tool.title,
     description: tool.description,
     inputSchema: tool.inputSchema,
+    ...(tool.outputSchema ? { outputSchema: tool.outputSchema } : {}),
+    ...(tool.annotations ? { annotations: tool.annotations } : {}),
   }, tool.run);
 }
 

@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { z, type ZodTypeAny } from "zod";
+import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { COMPONENT_TYPES, DashboardSchema, normalizeKeys, parseInnerJson } from "./schemas.js";
 import {
   createDashboard,
@@ -25,10 +26,22 @@ import type { DashboardDto } from "./types.js";
 const IdInput: Record<string, ZodTypeAny> = { id: z.string().min(1) };
 const RawJsonInput: Record<string, ZodTypeAny> = { dashboard_json: z.string().min(2) };
 
+const READ: ToolAnnotations = { readOnlyHint: true, idempotentHint: true };
+const QUERY: ToolAnnotations = { readOnlyHint: true, idempotentHint: false, openWorldHint: true };
+const WRITE = (destructive = false): ToolAnnotations => ({
+  readOnlyHint: false,
+  destructiveHint: destructive,
+  idempotentHint: false,
+});
+
 interface McpToolDef {
   name: string;
+  title: string;
   description: string;
   inputSchema: Record<string, ZodTypeAny>;
+  annotations?: ToolAnnotations;
+  /** Zod schema for protocol-level structuredContent (read-type tools with a stable shape). */
+  outputSchema?: ZodTypeAny;
   run: (args: Record<string, unknown>) => Promise<ToolResult>;
 }
 
@@ -73,8 +86,11 @@ function validateInnerJson(dto: DashboardDto): { innerJsonFields: string[] } {
   return { innerJsonFields: innerFields };
 }
 
-function jsonResult(value: unknown): ToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+function jsonResult(value: unknown, structured?: ToolResult["structuredContent"]): ToolResult {
+  return {
+    content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
+    ...(structured !== undefined ? { structuredContent: structured } : {}),
+  };
 }
 
 function errorResult(error: Error): ToolResult {
@@ -123,14 +139,27 @@ export function buildTools(): ToolAllocator {
   const defs: McpToolDef[] = [
     {
       name: "list_dashboards",
+      title: "List dashboards",
       description: "List dashboards: default (`_default` suffix) and custom, from App_Data storage.",
       inputSchema: {},
-      run: async () => jsonResult(await listDashboards()),
+      annotations: READ,
+      outputSchema: z.object({
+        dashboards: z.union([z.array(z.record(z.unknown())), z.record(z.unknown())]),
+      }).passthrough(),
+      run: async () => {
+        const dashboards = await listDashboards();
+        const structured = z.array(z.record(z.unknown())).safeParse(dashboards).success
+          ? { dashboards }
+          : { dashboards: dashboards as unknown as Record<string, unknown> };
+        return jsonResult(dashboards, structured);
+      },
     },
     {
       name: "get_dashboard",
+      title: "Get dashboard",
       description: "Get full dashboard JSON by id. Default dashboards end with `_default`.",
       inputSchema: IdInput,
+      annotations: READ,
       run: async (args) => {
         const id = String(args["id"]);
         try {
@@ -146,76 +175,106 @@ export function buildTools(): ToolAllocator {
     },
     {
       name: "create_dashboard",
+      title: "Create dashboard",
       description: "Create a new custom dashboard. ID is generated from Title.Text following backend rules.",
       inputSchema: RawJsonInput,
+      annotations: WRITE(),
+      outputSchema: z.object({ id: z.string(), path: z.string() }).passthrough(),
       run: async (args) => {
         const dto = parseRaw(String(args["dashboard_json"]));
         validateInnerJson(dto);
         const created = await createDashboard(dto);
-        return jsonResult(created);
+        return jsonResult(created, created as Record<string, unknown>);
       },
     },
     {
       name: "update_dashboard",
+      title: "Update dashboard",
       description: "Update an existing custom dashboard (by Id in the JSON). Default dashboards are read-only.",
       inputSchema: RawJsonInput,
+      annotations: WRITE(),
+      outputSchema: z.object({ updated: z.string() }).passthrough(),
       run: async (args) => {
         const dto = parseRaw(String(args["dashboard_json"]));
         validateInnerJson(dto);
         const updatedPath = await updateDashboard(dto);
-        return jsonResult({ updated: updatedPath });
+        return jsonResult({ updated: updatedPath }, { updated: updatedPath });
       },
     },
     {
       name: "delete_dashboard",
+      title: "Delete dashboard",
       description: "Delete a custom dashboard by id. Default (`_default`) dashboards cannot be deleted.",
       inputSchema: IdInput,
+      annotations: WRITE(true),
+      outputSchema: z.object({ id: z.string(), deleted: z.boolean() }).passthrough(),
       run: async (args) => {
         const id = String(args["id"]);
         const deleted = await deleteDashboard(id);
-        return jsonResult({ id, deleted });
+        return jsonResult({ id, deleted }, { id, deleted });
       },
     },
     {
       name: "validate_dashboard",
+      title: "Validate dashboard JSON",
       description: "Validate dashboard JSON: Zod schema, inner JSON fields, and round-trip.",
       inputSchema: RawJsonInput,
+      annotations: READ,
+      outputSchema: z.object({
+        valid: z.boolean(),
+        innerJsonFields: z.array(z.string()),
+        roundTripPasses: z.boolean(),
+      }).passthrough(),
       run: async (args) => {
         const dto = parseRaw(String(args["dashboard_json"]));
         const { innerJsonFields } = validateInnerJson(dto);
         const roundTrip = JSON.parse(JSON.stringify(dto));
         const ok = DashboardSchema.safeParse(roundTrip).success;
-        return jsonResult({ valid: ok, innerJsonFields, roundTripPasses: ok });
+        const result = { valid: ok, innerJsonFields, roundTripPasses: ok };
+        return jsonResult(result, result);
       },
     },
     {
       name: "get_component_types",
+      title: "List component types",
       description: "List the 17 canonical dashboard component types.",
       inputSchema: {},
-      run: async () =>
-        jsonResult(
-          COMPONENT_TYPES.map((type) => ({
+      annotations: READ,
+      outputSchema: z.object({
+        types: z.array(z.object({ type: z.string(), description: z.string() })),
+      }).passthrough(),
+      run: async () => {
+        const result = {
+          types: COMPONENT_TYPES.map((type) => ({
             type,
             description: `Dashboard component type: ${type}`,
-          }))
-        ),
+          })),
+        };
+        return jsonResult(result, result);
+      },
     },
     {
       name: "validate_layout",
+      title: "Validate react-grid-layout",
       description: "Validate a react-grid-layout JSON string.",
       inputSchema: { layout_json: z.string().min(2) },
+      annotations: READ,
+      outputSchema: z.object({ valid: z.boolean(), value: z.unknown() }).passthrough(),
       run: async (args) => {
         const parsed: unknown = JSON.parse(String(args["layout_json"]));
-        return jsonResult({
+        const result = {
           valid: parsed !== null && typeof parsed === "object",
           value: parsed,
-        });
+        };
+        return jsonResult(result, result);
       },
     },
     {
       name: "run_tests",
+      title: "Run frontend tests",
       description: "Run frontend Jest tests in FrontendApp; optionally by file path filter.",
       inputSchema: { path: z.string().optional() },
+      annotations: QUERY,
       run: async (args) => {
         const testPath = typeof args["path"] === "string" ? args["path"] : undefined;
         const { exitCode, output } = await runJest(testPath);
@@ -224,9 +283,16 @@ export function buildTools(): ToolAllocator {
     },
     {
       name: "dry_run_dashboard",
+      title: "Dry-run dashboard create/update",
       description:
         "Preview create/update without writing: validates the JSON, computes the backend-compatible id (Title.Text verbatim, '(N)' suffix) for create, or checks existence/read-only for update.",
       inputSchema: RawJsonInput,
+      annotations: READ,
+      outputSchema: z.object({
+        valid: z.boolean(),
+        innerJsonFields: z.array(z.string()),
+        preview: z.record(z.unknown()),
+      }).passthrough(),
       run: async (args) => {
         const dto = parseRaw(String(args["dashboard_json"]));
         const { innerJsonFields } = validateInnerJson(dto);
@@ -235,24 +301,29 @@ export function buildTools(): ToolAllocator {
           id.length > 0
             ? { operation: "update", ...(await previewUpdate(id)) }
             : { operation: "create", ...(await previewCreate(dto)) };
-        return jsonResult({ valid: true, innerJsonFields, preview });
+        const result = { valid: true, innerJsonFields, preview };
+        return jsonResult(result, result);
       },
     },
     {
       name: "query_data",
+      title: "Execute data request",
       description:
-        "Execute a data request against the running backend: POST /api/Data. Pass the JSON body of DataRequest (DataSource with Connection+Queries, DataFields, Filter, Sorting, Datasets, Parameters) — copy it from the dashboard JSON DataSource.",
+        "Execute a data request against the running backend: POST /api/Data. Pass the JSON body of DataRequest (DataSource with Connection+Queries, DataFields, Filter, Sorting, Datasets, Parameters) — copy it from the dashboard JSON DataSource. dataFields must carry unique per-field Ids (1, 2, 3, …).",
       inputSchema: { data_json: z.string().min(2) },
+      annotations: QUERY,
       run: async (args) => jsonResult(await apiQueryData(parseJsonArg("data_json", args["data_json"]))),
     },
     {
       name: "get_tables_info",
+      title: "Database schema info",
       description:
         "Database schema info via POST /api/TablesInfo. Without tables_json returns all table/view names; with tables_json ({dataSourceConnection, tables: [{schema, name, type}]}) returns columns and relations.",
       inputSchema: {
         connection_json: z.string().min(2),
         tables_json: z.string().min(2).optional(),
       },
+      annotations: QUERY,
       run: async (args) => {
         const connection = parseJsonArg("connection_json", args["connection_json"]);
         const tablesRaw = args["tables_json"];
@@ -265,9 +336,16 @@ export function buildTools(): ToolAllocator {
     },
     {
       name: "get_component_schema",
+      title: "Component Options examples",
       description:
         "Show real-world Options examples for a component type from existing dashboards (defaults give canonical shapes).",
       inputSchema: { type: z.string().min(1) },
+      annotations: READ,
+      outputSchema: z.object({
+        type: z.string(),
+        foundInDashboards: z.number().int(),
+        examples: z.array(z.record(z.unknown())),
+      }).passthrough(),
       run: async (args) => {
         const wanted = String(args["type"]);
         const ids = (await listDashboards()).map((meta) => String(meta.id ?? ""));
@@ -299,16 +377,21 @@ export function buildTools(): ToolAllocator {
             continue;
           }
         }
-        return jsonResult({ type: wanted, foundInDashboards: examples.length, examples });
+        const result = { type: wanted, foundInDashboards: examples.length, examples };
+        return jsonResult(result, result);
       },
     },
     {
       name: "export_dashboard",
+      title: "Export dashboard",
       description: "Export a dashboard as a pretty-printed JSON string.",
       inputSchema: IdInput,
+      annotations: READ,
+      outputSchema: z.object({ exported: z.string() }).passthrough(),
       run: async (args) => {
         const dto = await getDashboard(String(args["id"]));
-        return jsonResult({ exported: JSON.stringify(dto, null, 2) });
+        const exported = JSON.stringify(dto, null, 2);
+        return jsonResult({ exported }, { exported });
       },
     },
   ];
