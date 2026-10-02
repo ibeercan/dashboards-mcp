@@ -1,0 +1,230 @@
+import { spawn } from "node:child_process";
+import path from "node:path";
+import { z, type ZodTypeAny } from "zod";
+import { COMPONENT_TYPES, DashboardSchema, normalizeKeys, parseInnerJson } from "./schemas.js";
+import {
+  createDashboard,
+  deleteDashboard,
+  getDashboard,
+  listDashboards,
+  updateDashboard,
+} from "./storage.js";
+import {
+  apiCreateDashboard,
+  apiDeleteDashboard,
+  apiGetDashboard,
+  apiListDashboards,
+  apiUpdateDashboard,
+} from "./api-client.js";
+import type { DashboardDto } from "./types.js";
+
+const IdInput: Record<string, ZodTypeAny> = { id: z.string().min(1) };
+const RawJsonInput: Record<string, ZodTypeAny> = { dashboard_json: z.string().min(2) };
+
+interface McpToolDef {
+  name: string;
+  description: string;
+  inputSchema: Record<string, ZodTypeAny>;
+  run: (args: Record<string, unknown>) => Promise<{ content: Array<{ type: "text"; text: string }> }>;
+}
+
+interface ToolResult {
+  content: Array<{ type: "text"; text: string }>;
+}
+
+function parseRaw(raw: string): DashboardDto {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`dashboard_json is not valid JSON: ${(e as Error).message}`);
+  }
+  const result = DashboardSchema.safeParse(normalizeKeys(parsed, 0));
+  if (!result.success) {
+    const issues = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+    throw new Error(`Dashboard schema validation failed:\n${issues.join("\n")}`);
+  }
+  return result.data;
+}
+
+function validateInnerJson(dto: DashboardDto): Record<string, unknown> {
+  const decoded: Record<string, unknown> = { innerJsonFields: [] as string[] };
+  const innerFields = decoded["innerJsonFields"] as string[];
+
+  const layout = parseInnerJson("Layout", dto.Layout);
+  if (layout) {
+    innerFields.push("Layout");
+    if (typeof layout["layouts"] === "string") {
+      throw new Error("Layout.inner.layouts must be an object, not a JSON string");
+    }
+  }
+  if (parseInnerJson("Options", dto.Options)) innerFields.push("Options");
+
+  dto.Components?.forEach((component, index) => {
+    if (parseInnerJson("Interactivity", component.Interactivity)) {
+      innerFields.push(`Components[${index}].Interactivity`);
+    }
+  });
+  return decoded;
+}
+
+function jsonResult(value: unknown): ToolResult {
+  return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+}
+
+function errorResult(error: Error): ToolResult {
+  return {
+    content: [{ type: "text", text: JSON.stringify({ error: error.message }, null, 2) }],
+  };
+}
+
+function frontendAppDir(): string {
+  return path.resolve("..", "FrontendApp");
+}
+
+function runJest(testPath: string | undefined): Promise<{ exitCode: number; output: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("yarn", ["test", ...(testPath ? [testPath] : [])], {
+      cwd: frontendAppDir(),
+      shell: true,
+      env: { ...process.env },
+    });
+    let output = "";
+    child.stdout.on("data", (chunk) => { output += String(chunk); });
+    child.stderr.on("data", (chunk) => { output += String(chunk); });
+    child.on("error", (err) => reject(err));
+    child.on("close", (code) => resolve({ exitCode: code ?? 1, output }));
+  });
+}
+
+export interface ToolAllocator {
+  readonly tools: McpToolDef[];
+}
+
+export function buildTools(): ToolAllocator {
+  const defs: McpToolDef[] = [
+    {
+      name: "list_dashboards",
+      description: "List dashboards: default (`_default` suffix) and custom, from App_Data storage.",
+      inputSchema: {},
+      run: async () => jsonResult(await listDashboards()),
+    },
+    {
+      name: "get_dashboard",
+      description: "Get full dashboard JSON by id. Default dashboards end with `_default`.",
+      inputSchema: IdInput,
+      run: async (args) => {
+        const id = String(args["id"]);
+        try {
+          return jsonResult(await getDashboard(id));
+        } catch (fsError) {
+          try {
+            return jsonResult(await apiGetDashboard(id));
+          } catch (apiError) {
+            throw new Error(`File storage: ${(fsError as Error).message}; API: ${(apiError as Error).message}`);
+          }
+        }
+      },
+    },
+    {
+      name: "create_dashboard",
+      description: "Create a new custom dashboard. ID is generated from Title.Text following backend rules.",
+      inputSchema: RawJsonInput,
+      run: async (args) => {
+        const dto = parseRaw(String(args["dashboard_json"]));
+        validateInnerJson(dto);
+        const created = await createDashboard(dto);
+        return jsonResult(created);
+      },
+    },
+    {
+      name: "update_dashboard",
+      description: "Update an existing custom dashboard (by Id in the JSON). Default dashboards are read-only.",
+      inputSchema: RawJsonInput,
+      run: async (args) => {
+        const dto = parseRaw(String(args["dashboard_json"]));
+        validateInnerJson(dto);
+        const updatedPath = await updateDashboard(dto);
+        return jsonResult({ updated: updatedPath });
+      },
+    },
+    {
+      name: "delete_dashboard",
+      description: "Delete a custom dashboard by id. Default (`_default`) dashboards cannot be deleted.",
+      inputSchema: IdInput,
+      run: async (args) => {
+        const id = String(args["id"]);
+        const deleted = await deleteDashboard(id);
+        return jsonResult({ id, deleted });
+      },
+    },
+    {
+      name: "validate_dashboard",
+      description: "Validate dashboard JSON: Zod schema, inner JSON fields, and round-trip.",
+      inputSchema: RawJsonInput,
+      run: async (args) => {
+        const dto = parseRaw(String(args["dashboard_json"]));
+        const inner = validateInnerJson(dto);
+        const roundTrip = JSON.parse(JSON.stringify(dto));
+        const ok = DashboardSchema.safeParse(roundTrip).success;
+        return jsonResult({ valid: ok, innerJsonFields: inner, roundTripPasses: ok });
+      },
+    },
+    {
+      name: "get_component_types",
+      description: "List the 17 canonical dashboard component types.",
+      inputSchema: {},
+      run: async () =>
+        jsonResult(
+          COMPONENT_TYPES.map((type) => ({
+            type,
+            description: `Dashboard component type: ${type}`,
+          }))
+        ),
+    },
+    {
+      name: "validate_layout",
+      description: "Validate a react-grid-layout JSON string.",
+      inputSchema: { layout_json: z.string().min(2) },
+      run: async (args) => {
+        const parsed: unknown = JSON.parse(String(args["layout_json"]));
+        return jsonResult({
+          valid: parsed !== null && typeof parsed === "object",
+          value: parsed,
+        });
+      },
+    },
+    {
+      name: "run_tests",
+      description: "Run frontend Jest tests in FrontendApp; optionally by file path filter.",
+      inputSchema: { path: z.string().optional() },
+      run: async (args) => {
+        const testPath = typeof args["path"] === "string" ? args["path"] : undefined;
+        const { exitCode, output } = await runJest(testPath);
+        return jsonResult({ exitCode, output: output.slice(-20000) });
+      },
+    },
+    {
+      name: "export_dashboard",
+      description: "Export a dashboard as a pretty-printed JSON string.",
+      inputSchema: IdInput,
+      run: async (args) => {
+        const dto = await getDashboard(String(args["id"]));
+        return jsonResult({ exported: JSON.stringify(dto, null, 2) });
+      },
+    },
+  ];
+
+  const wrapped: McpToolDef[] = defs.map((tool) => ({
+    ...tool,
+    run: async (args: Record<string, unknown>): Promise<ToolResult> => {
+      try {
+        return await tool.run(args);
+      } catch (e) {
+        return errorResult(e as Error);
+      }
+    },
+  }));
+
+  return { tools: wrapped };
+}
