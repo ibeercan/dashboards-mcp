@@ -7,13 +7,17 @@ import {
   deleteDashboard,
   getDashboard,
   listDashboards,
+  previewCreate,
+  previewUpdate,
   updateDashboard,
 } from "./storage.js";
 import {
   apiCreateDashboard,
   apiDeleteDashboard,
+  apiGetColumnsInfo,
   apiGetDashboard,
-  apiListDashboards,
+  apiGetTableNames,
+  apiQueryData,
   apiUpdateDashboard,
 } from "./api-client.js";
 import type { DashboardDto } from "./types.js";
@@ -95,6 +99,15 @@ function runJest(testPath: string | undefined): Promise<{ exitCode: number; outp
     child.on("error", (err) => reject(err));
     child.on("close", (code) => resolve({ exitCode: code ?? 1, output }));
   });
+}
+
+function parseJsonArg(name: string, raw: unknown): unknown {
+  const text = typeof raw === "string" ? raw : JSON.stringify(raw);
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`${name} is not valid JSON: ${(e as Error).message}`);
+  }
 }
 
 export interface ToolAllocator {
@@ -202,6 +215,68 @@ export function buildTools(): ToolAllocator {
         const testPath = typeof args["path"] === "string" ? args["path"] : undefined;
         const { exitCode, output } = await runJest(testPath);
         return jsonResult({ exitCode, output: output.slice(-20000) });
+      },
+    },
+    {
+      name: "dry_run_dashboard",
+      description:
+        "Preview create/update without writing: validates the JSON, computes the backend-compatible id (Title.Text verbatim, '(N)' suffix) for create, or checks existence/read-only for update.",
+      inputSchema: RawJsonInput,
+      run: async (args) => {
+        const dto = parseRaw(String(args["dashboard_json"]));
+        const inner = validateInnerJson(dto);
+        const id = typeof dto.Id === "string" && dto.Id.length > 0 ? dto.Id : "";
+        const preview =
+          id.length > 0
+            ? { operation: "update", ...(await previewUpdate(id)) }
+            : { operation: "create", ...(await previewCreate(dto)) };
+        return jsonResult({ valid: true, innerJsonFields: inner, preview });
+      },
+    },
+    {
+      name: "query_data",
+      description:
+        "Execute a data request against the running backend: POST /api/Data. Pass the JSON body of DataRequest (DataSource with Connection+Queries, DataFields, Filter, Sorting, Datasets, Parameters) — copy it from the dashboard JSON DataSource.",
+      inputSchema: { data_json: z.string().min(2) },
+      run: async (args) => jsonResult(await apiQueryData(parseJsonArg("data_json", args["data_json"]))),
+    },
+    {
+      name: "get_tables_info",
+      description:
+        "Database schema info via POST /api/TablesInfo. Without tables_json returns all table/view names; with tables_json ({dataSourceConnection, tables: [{schema, name, type}]}) returns columns and relations.",
+      inputSchema: {
+        connection_json: z.string().min(2),
+        tables_json: z.string().min(2).optional(),
+      },
+      run: async (args) => {
+        const connection = parseJsonArg("connection_json", args["connection_json"]);
+        const tablesRaw = args["tables_json"];
+        if (tablesRaw === undefined) {
+          return jsonResult(await apiGetTableNames(connection));
+        }
+        const tables = parseJsonArg("tables_json", tablesRaw) as Record<string, unknown>;
+        return           jsonResult(await apiGetColumnsInfo({ dataSourceConnection: connection, tables: tables["tables"] ?? tables }));
+      },
+    },
+    {
+      name: "get_component_schema",
+      description:
+        "Show real-world Options examples for a component type from existing dashboards (defaults give canonical shapes).",
+      inputSchema: { type: z.string().min(1) },
+      run: async (args) => {
+        const wanted = String(args["type"]);
+        const ids = (await listDashboards()).map((meta) => String(meta.id ?? ""));
+        const examples: Array<{ dashboardId: string; options: unknown; interactivity: unknown }> = [];
+        for (const id of ids) {
+          if (examples.length >= 2) break;
+          const dto = await getDashboard(id);
+          const component = dto.Components?.find(
+            (c) => typeof c["Type"] === "string" && String(c["Type"]).toLowerCase() === wanted.toLowerCase()
+          );
+          if (!component || examples.some((ex) => JSON.stringify(ex.options) === JSON.stringify(component.Options))) continue;
+          examples.push({ dashboardId: id, options: parseInnerJson("Options", component.Options), interactivity: parseInnerJson("Interactivity", component.Interactivity) });
+        }
+        return jsonResult({ type: wanted, foundInDashboards: examples.length, examples });
       },
     },
     {

@@ -45,6 +45,16 @@ function send(msg) { server.stdin.write(JSON.stringify(msg) + "\n"); return new 
   const bad = await send({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "validate_dashboard", arguments: { dashboard_json: "{ not json" } } });
   console.log("validate bad -> has error:", /error/i.test(bad.result.content[0].text));
 
+  // tools/call: dry_run_dashboard create preview
+  const dry = await send({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "dry_run_dashboard", arguments: { dashboard_json: JSON.stringify({ Title: { Text: "Smoke dry run test" }, DataSources: [], Components: [] }) } } });
+  const dryOut = JSON.parse(dry.result.content[0].text);
+  console.log("dry_run -> id:", dryOut.preview?.id?.length > 0, "| valid:", dryOut.valid === true);
+
+  // tools/call: get_component_schema against real fixtures
+  const schema = await send({ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "get_component_schema", arguments: { type: "table" } } });
+  const schemaOut = JSON.parse(schema.result.content[0].text);
+  console.log("get_component_schema -> examples:", schemaOut.foundInDashboards ?? 0);
+
   server.kill();
   process.exit(0);
 })().catch((e) => { console.error(e); server.kill(); process.exit(1); });
