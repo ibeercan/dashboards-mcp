@@ -26,11 +26,17 @@ async function request<T>(
   if (!response.ok) {
     throw new Error(`${method} ${url} failed: HTTP ${response.status}`);
   }
-  const envelope = (await response.json()) as CommonResponse<T>;
-  if (envelope.Error?.Code) {
-    throw new Error(`API error ${envelope.Error.Code} on ${method} ${url}`);
+  const envelope = (await response.json()) as Record<string, unknown>;
+  // Backend serializes the envelope in camelCase ({data, error}/file fields keep PascalCase) — accept both.
+  const err = (envelope["Error"] ?? envelope["error"]) as
+    | { Code?: string; code?: string; Messages?: unknown; messages?: unknown }
+    | null
+    | undefined;
+  if (err?.Code || err?.code) {
+    const messages = err.Messages ?? err.messages;
+    throw new Error(`API error ${err.Code ?? err.code} on ${method} ${url}${messages ? `: ${JSON.stringify(messages)}` : ""}`);
   }
-  return envelope.Data as T;
+  return (envelope["Data"] ?? envelope["data"]) as T;
 }
 
 export function apiListDashboards(): Promise<Array<{ Id: string; Name: string }>> {
@@ -51,4 +57,16 @@ export function apiUpdateDashboard(dashboard: DashboardDto): Promise<DashboardDt
 
 export function apiDeleteDashboard(id: string): Promise<boolean> {
   return request<boolean>("DELETE", `${apiBaseUrl() + API_BASE_PATH}/${encodeURIComponent(id)}`);
+}
+
+export function apiQueryData(dataRequest: unknown): Promise<unknown> {
+  return request<unknown>("POST", `${apiBaseUrl()}/api/Data`, dataRequest);
+}
+
+export function apiGetTableNames(connection: unknown): Promise<unknown> {
+  return request<unknown>("POST", `${apiBaseUrl()}/api/TablesInfo`, connection);
+}
+
+export function apiGetColumnsInfo(tablesInfoRequest: unknown): Promise<unknown> {
+  return request<unknown>("POST", `${apiBaseUrl()}/api/TablesInfo/tablesInfo`, tablesInfoRequest);
 }

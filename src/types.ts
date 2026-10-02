@@ -55,11 +55,15 @@ export interface DashboardMeta {
 }
 
 export interface CommonResponseError {
-  Code: string | null;
+  Code?: string | null;
+  code?: string | null;
   Messages?: unknown;
 }
 
+/** Envelope arrives camelCase ({data, error}) from ASP.NET; dashboard/file payloads stay PascalCase. */
 export interface CommonResponse<T> {
-  Data: T | null;
-  Error: CommonResponseError;
+  Data?: T | null;
+  data?: T | null;
+  Error?: CommonResponseError;
+  error?: CommonResponseError;
 }
