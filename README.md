@@ -1,83 +1,83 @@
-<div align="center">
+﻿<div align="center">
 
 # dashboards-mcp
 
-**MCP server for AI-assisted development and testing of [Dispather (Диспетчер)](https://github.com/ibeercan) dashboards** — a full-stack BI dashboard designer and runtime for manufacturing.
+**MCP-СЃРµСЂРІРµСЂ РґР»СЏ AI-СЂР°Р·СЂР°Р±РѕС‚РєРё Рё С‚РµСЃС‚РёСЂРѕРІР°РЅРёСЏ РґР°С€Р±РѕСЂРґРѕРІ [Dispather (Р”РёСЃРїРµС‚С‡РµСЂ)](https://github.com/ibeercan)** вЂ” full-stack BI-РєРѕРЅСЃС‚СЂСѓРєС‚РѕСЂР° Рё СЂР°РЅС‚Р°Р№РјР° РїСЂРѕРёР·РІРѕРґСЃС‚РІРµРЅРЅС‹С… РґР°С€Р±РѕСЂРґРѕРІ.
 
-[![TypeScript](https://img.shields.io/badge/language-TypeScript-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Model Context Protocol](https://img.shields.io/badge/protocol-MCP-7c3aed)](https://modelcontextprotocol.io)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D18-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Round-trip: 10/10 fixtures](https://img.shields.io/badge/round--trip-10%20of%2010%20fixtures-brightgreen)](#verification)
+[Русская версия](README.md) | [English](README.en.md)
+[Русская версия](README.md) | [English](README.en.md)
+[Русская версия](README.md) | [English](README.en.md)
+[Русская версия](README.md) | [English](README.en.md)
 
-[English](#overview) | [Русская версия](README.ru.md)
+[Русская версия](README.md) | [English](README.en.md)
 
 </div>
 
-## Overview
+## РћР±Р·РѕСЂ
 
-`dashboards-mcp` speaks the [Model Context Protocol](https://modelcontextprotocol.io) over **stdio**, so any MCP-capable AI agent can work with dashboards the same way the BI backend does — no UI required.
+`dashboards-mcp` РѕР±С‰Р°РµС‚СЃСЏ РїРѕ [Model Context Protocol](https://modelcontextprotocol.io) С‡РµСЂРµР· **stdio**, РїРѕСЌС‚РѕРјСѓ Р»СЋР±РѕР№ MCP-СЃРѕРІРјРµСЃС‚РёРјС‹Р№ AI-Р°РіРµРЅС‚ РјРѕР¶РµС‚ СЂР°Р±РѕС‚Р°С‚СЊ СЃ РґР°С€Р±РѕСЂРґР°РјРё С‚Р°Рє Р¶Рµ, РєР°Рє СЌС‚Рѕ РґРµР»Р°РµС‚ BI-Р±СЌРєРµРЅРґ вЂ” Р±РµР· UI.
 
-Two data targets:
+Р”РІР° РІР°СЂРёР°РЅС‚Р° РёСЃС‚РѕС‡РЅРёРєР° РґР°РЅРЅС‹С…:
 
-| Mode | Target | Use for |
+| Р РµР¶РёРј | РСЃС‚РѕС‡РЅРёРє | РќР°Р·РЅР°С‡РµРЅРёРµ |
 |------|--------|---------|
-| **File storage** | `App_Data/` on disk | Day-to-day dashboard development |
-| **HTTP API** | running backend (`DASHBOARDS_API_URL`) | Integration-testing against the live system |
+| **Р¤Р°Р№Р»С‹** | `App_Data/` РЅР° РґРёСЃРєРµ | РџРѕРІСЃРµРґРЅРµРІРЅР°СЏ СЂР°Р·СЂР°Р±РѕС‚РєР° РґР°С€Р±РѕСЂРґРѕРІ |
+| **HTTP API** | Р·Р°РїСѓС‰РµРЅРЅС‹Р№ Р±СЌРєРµРЅРґ (`DASHBOARDS_API_URL`) | РРЅС‚РµРіСЂР°С†РёРѕРЅРЅРѕРµ С‚РµСЃС‚РёСЂРѕРІР°РЅРёРµ Р¶РёРІРѕР№ СЃРёСЃС‚РµРјС‹ |
 
-## What it can do
+## Р§С‚Рѕ СѓРјРµРµС‚
 
-| Tool | Description |
+| РРЅСЃС‚СЂСѓРјРµРЅС‚ | РћРїРёСЃР°РЅРёРµ |
 |------|-------------|
-| `list_dashboards` | List all dashboards (defaults with `_default` suffix + custom) |
-| `get_dashboard` | Get full dashboard JSON by id (file first, API fallback) |
-| `create_dashboard` | Create custom dashboard, backend-compatible ID & collision rules |
-| `update_dashboard` | Update an existing custom dashboard |
-| `delete_dashboard` | Delete custom dashboard (`_default` ones are read-only) |
-| `validate_dashboard` | Zod schema + inner JSON check + round-trip |
-| `get_component_types` | The 17 canonical component types |
-| `validate_layout` | Validate a react-grid-layout JSON string |
-| `run_tests` | Run frontend Jest tests (`FrontendApp`) |
-| `export_dashboard` | Pretty-printed JSON export |
+| `list_dashboards` | РЎРїРёСЃРѕРє РІСЃРµС… РґР°С€Р±РѕСЂРґРѕРІ (РґРµС„РѕР»С‚РЅС‹Рµ `_default` + РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёРµ) |
+| `get_dashboard` | РџРѕР»РЅС‹Р№ JSON РґР°С€Р±РѕСЂРґР° РїРѕ id (СЃРЅР°С‡Р°Р»Р° С„Р°Р№Р», РїРѕС‚РѕРј API) |
+| `create_dashboard` | РЎРѕР·РґР°РЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ РґР°С€Р±РѕСЂРґР°, ID/РєРѕР»Р»РёР·РёРё РєР°Рє РІ Р±СЌРєРµРЅРґРµ |
+| `update_dashboard` | РћР±РЅРѕРІР»РµРЅРёРµ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ РґР°С€Р±РѕСЂРґР° |
+| `delete_dashboard` | РЈРґР°Р»РµРЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ РґР°С€Р±РѕСЂРґР° (`_default` вЂ” С‚РѕР»СЊРєРѕ С‡С‚РµРЅРёРµ) |
+| `validate_dashboard` | Zod-СЃС…РµРјР° + РІР»РѕР¶РµРЅРЅС‹Р№ JSON + round-trip |
+| `get_component_types` | 17 РєР°РЅРѕРЅРёС‡РµСЃРєРёС… С‚РёРїРѕРІ РєРѕРјРїРѕРЅРµРЅС‚РѕРІ |
+| `validate_layout` | Р’Р°Р»РёРґР°С†РёСЏ JSON react-grid-layout |
+| `run_tests` | Jest-С‚РµСЃС‚С‹ С„СЂРѕРЅС‚РµРЅРґР° (`FrontendApp`) |
+| `export_dashboard` | Р¤РѕСЂРјР°С‚РёСЂРѕРІР°РЅРЅС‹Р№ JSON-СЌРєСЃРїРѕСЂС‚ |
 
-## Domain rules mirrored from the backend
+## РџСЂР°РІРёР»Р° РїСЂРµРґРјРµС‚РЅРѕР№ РѕР±Р»Р°СЃС‚Рё (Р·РµСЂРєР°Р»Рѕ Р±СЌРєРµРЅРґР°)
 
-These are not conventions — they are exact behaviors of `DashboardsFileBaseStorage`:
+Р­С‚Рѕ РЅРµ РґРѕРіРѕРІРѕСЂС‘РЅРЅРѕСЃС‚Рё вЂ” СЌС‚Рѕ С‚РѕС‡РЅРѕРµ РїРѕРІРµРґРµРЅРёРµ `DashboardsFileBaseStorage`:
 
-- 🔑 **ID = `Title.Text` verbatim** (no slugification), `.json` extension
-- 🔁 **Collision suffix `" (N)"`**, case-insensitive uniqueness
-- 🔒 **`_default` = read-only**: default dashboards live in `App_Data/DefaultDashboards/`, get the `_default` suffix on read, and the server never writes there
-- 📦 **Custom dashboards** live in `App_Data/Dashboards/`
-- 🧅 **JSON-in-JSON**: `Options`, `Interactivity` (and legacy `Layout`) are strings containing JSON — parsed and validated as inner JSON
-- ✉️ **API envelope**: HTTP responses are wrapped in `CommonResponse<T, ResponseBaseError>` and return **HTTP 200 even on errors** — the client unwraps them
+- рџ”‘ **ID = `Title.Text` РґРѕСЃР»РѕРІРЅРѕ** (Р±РµР· СЃР»Р°РіРёС„РёРєР°С†РёРё), СЂР°СЃС€РёСЂРµРЅРёРµ `.json`
+- рџ”Ѓ **РЎСѓС„С„РёРєСЃ РєРѕР»Р»РёР·РёР№ `" (N)"`**, СѓРЅРёРєР°Р»СЊРЅРѕСЃС‚СЊ Р±РµР· СѓС‡С‘С‚Р° СЂРµРіРёСЃС‚СЂР°
+- рџ”’ **`_default` = С‚РѕР»СЊРєРѕ С‡С‚РµРЅРёРµ**: РґРµС„РѕР»С‚РЅС‹Рµ РґР°С€Р±РѕСЂРґС‹ РІ `App_Data/DefaultDashboards/`, РїСЂРё С‡С‚РµРЅРёРё РїРѕР»СѓС‡Р°СЋС‚ СЃСѓС„С„РёРєСЃ `_default`, СЃРµСЂРІРµСЂ С‚СѓРґР° РЅРµ РїРёС€РµС‚
+- рџ“¦ **РџРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёРµ РґР°С€Р±РѕСЂРґС‹** вЂ” РІ `App_Data/Dashboards/`
+- рџ§… **JSON РІ JSON**: `Options`, `Interactivity` (Рё Р»РµРіР°СЃРё `Layout`) вЂ” СЃС‚СЂРѕРєРё СЃ JSON РІРЅСѓС‚СЂРё, РїР°СЂСЃСЏС‚СЃСЏ Рё РІР°Р»РёРґРёСЂСѓСЋС‚СЃСЏ РєР°Рє РІР»РѕР¶РµРЅРЅС‹Р№ JSON
+- вњ‰пёЏ **РљРѕРЅРІРµСЂС‚ API**: HTTP-РѕС‚РІРµС‚С‹ РѕР±РѕСЂР°С‡РёРІР°СЋС‚СЃСЏ РІ `CommonResponse<T, ResponseBaseError>` Рё РІРѕР·РІСЂР°С‰Р°СЋС‚ **HTTP 200 РґР°Р¶Рµ РїСЂРё РѕС€РёР±РєРµ** вЂ” РєР»РёРµРЅС‚ СЌС‚Рѕ СЂР°СЃРїР°РєРѕРІС‹РІР°РµС‚
 
-## Getting started
+## Р‘С‹СЃС‚СЂС‹Р№ СЃС‚Р°СЂС‚
 
 ```bash
-# 1. Install
+# 1. РЈСЃС‚Р°РЅРѕРІРєР°
 npm install
 
-# 2. Build
+# 2. РЎР±РѕСЂРєР°
 npm run build
 ```
 
-## Verification
+## РџСЂРѕРІРµСЂРєР°
 
 ```bash
-npm run verify            # round-trip validation over all 10 default fixtures
-node scripts/smoke.cjs    # MCP protocol smoke test (initialize + tools/list + tools/call)
+npm run verify            # round-trip РїРѕ РІСЃРµРј 10 РґРµС„РѕР»С‚РЅС‹Рј С„РёРєСЃС‚СѓСЂР°Рј
+node scripts/smoke.cjs    # smoke-С‚РµСЃС‚ MCP-РїСЂРѕС‚РѕРєРѕР»Р° (initialize + tools/list + tools/call)
 ```
 
-## Connect your AI agent
+## РџРѕРґРєР»СЋС‡РµРЅРёРµ AI-Р°РіРµРЅС‚Р°
 
-Environment variables:
+РџРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DASHBOARDS_ROOT` | yes (or auto-probe) | Dashboards backend root containing `App_Data/` |
-| `DASHBOARDS_API_URL` | no | Running backend base URL — enables HTTP API mode |
-| `DASHBOARDS_API_TIMEOUT_MS` | no | API timeout, default `60000` |
+| РџРµСЂРµРјРµРЅРЅР°СЏ | РћР±СЏР·Р°С‚РµР»СЊРЅР°СЏ | РћРїРёСЃР°РЅРёРµ |
+|----------|-------------|-------------|
+| `DASHBOARDS_ROOT` | РґР° (РёР»Рё Р°РІС‚Рѕ-РїРѕРёСЃРє) | РљРѕСЂРµРЅСЊ Р±СЌРєРµРЅРґР°, СЃРѕРґРµСЂР¶Р°С‰РёР№ `App_Data/` |
+| `DASHBOARDS_API_URL` | РЅРµС‚ | Р‘Р°Р·Р° Р·Р°РїСѓС‰РµРЅРЅРѕРіРѕ Р±СЌРєРµРЅРґР° вЂ” РІРєР»СЋС‡Р°РµС‚ СЂРµР¶РёРј HTTP API |
+| `DASHBOARDS_API_TIMEOUT_MS` | РЅРµС‚ | РўР°Р№РјР°СѓС‚ API, РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ `60000` |
 
-Register with [opencode](https://opencode.ai):
+Р РµРіРёСЃС‚СЂР°С†РёСЏ РІ [opencode](https://opencode.ai):
 
 ```jsonc
 // ~/.config/opencode/opencode.json
@@ -85,36 +85,36 @@ Register with [opencode](https://opencode.ai):
   "mcp": {
     "dashboards-mcp": {
       "type": "local",
-      "command": ["node", "<path>/mcp-server/dist/index.js"],
-      "environment": { "DASHBOARDS_ROOT": "<path>/Dashboards/Dashboards" }
+      "command": ["node", "<РїСѓС‚СЊ>/mcp-server/dist/index.js"],
+      "environment": { "DASHBOARDS_ROOT": "<РїСѓС‚СЊ>/Dashboards/Dashboards" }
     }
   }
 }
 ```
 
-## Project layout
+## РЎС‚СЂСѓРєС‚СѓСЂР° РїСЂРѕРµРєС‚Р°
 
 ```
 src/
-├── index.ts        # MCP server entry point (stdio)
-├── tools.ts        # 10 MCP tool implementations
-├── schemas.ts      # Zod schemas + key-case normalization
-├── storage.ts      # File-based storage provider
-├── api-client.ts   # HTTP API client
-├── types.ts        # TypeScript DTO types
-└── verify.ts       # Round-trip verification script
+в”њв”Ђв”Ђ index.ts        # РўРѕС‡РєР° РІС…РѕРґР° MCP-СЃРµСЂРІРµСЂР° (stdio)
+в”њв”Ђв”Ђ tools.ts        # 10 MCP-РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ
+в”њв”Ђв”Ђ schemas.ts      # Zod-СЃС…РµРјС‹ + РЅРѕСЂРјР°Р»РёР·Р°С†РёСЏ СЂРµРіРёСЃС‚СЂР° РєР»СЋС‡РµР№
+в”њв”Ђв”Ђ storage.ts      # Р¤Р°Р№Р»РѕРІС‹Р№ РїСЂРѕРІР°Р№РґРµСЂ С…СЂР°РЅРёР»РёС‰Р°
+в”њв”Ђв”Ђ api-client.ts   # РљР»РёРµРЅС‚ HTTP API
+в”њв”Ђв”Ђ types.ts        # TypeScript-С‚РёРїС‹ DTO
+в””в”Ђв”Ђ verify.ts       # РЎРєСЂРёРїС‚ round-trip-РїСЂРѕРІРµСЂРєРё
 scripts/
-└── smoke.cjs       # MCP protocol smoke test
+в””в”Ђв”Ђ smoke.cjs       # Smoke-С‚РµСЃС‚ MCP-РїСЂРѕС‚РѕРєРѕР»Р°
 ```
 
-## Release history
+## РСЃС‚РѕСЂРёСЏ РІРµСЂСЃРёР№
 
-Release history and planned improvements live in [`CHANGELOG.md`](CHANGELOG.md).
+РСЃС‚РѕСЂРёСЏ РёР·РјРµРЅРµРЅРёР№ вЂ” РІ [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
 <div align="center">
 
-Built with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
+РЎРґРµР»Р°РЅРѕ СЃ [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
 
 </div>
