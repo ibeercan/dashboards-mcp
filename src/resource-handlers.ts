@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { dashboardSummary, componentOptions, dataSourceSchema } from "./resources.js";
 import { listDashboards } from "./storage.js";
 
@@ -17,9 +18,9 @@ interface TemplateParams {
 
 export function publishResources(server: McpServer): void {
   const template = (name: string, uri: string, meta: Record<string, unknown>, reader: (uri: URL, params: TemplateParams) => Promise<{ contents: unknown[] }>) =>
-    // SDK 1.32: template registration goes through resource(); a template string
-    // argument (contains "{param}") selects the template overload.
-    server.resource(name, uri, meta as never, reader as never);
+    // SDK 1.32: template registration REQUIRES a ResourceTemplate instance —
+    // a plain string goes through the static-resource path and never matches.
+    server.resource(name, new ResourceTemplate(uri, { list: undefined }), meta as never, reader as never);
 
   template(
     "dashboard_summary",

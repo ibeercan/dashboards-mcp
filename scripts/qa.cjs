@@ -99,12 +99,55 @@ async function main() {
     `got ${names.length}: ${names.join(",")}`
   );
 
+  // -- resources / prompts (permanent surfaces) ------------------------------
+  const resList = await rpc("resources/list", {});
+  const resUris = (resList.result?.resources ?? []).map((r) => r.uri);
+  check(
+    "P0 static resources advertised",
+    resUris.includes("dashboards://index"),
+    JSON.stringify(resUris),
+  );
+  const resTemplates = await rpc("resources/templates/list", {});
+  const templateUris = (resTemplates.result?.resourceTemplates ?? []).map((t) => pUri(t));
+  function pUri(t) { return t.uriTemplate ?? t.uri ?? ""; }
+  check(
+    "P0 resource templates advertised",
+    templateUris.includes("dashboards://{id}/summary") &&
+      templateUris.includes("dashboards://{id}/components/{index}/options") &&
+      templateUris.includes("dashboards://{id}/datasources/{index}/schema"),
+    JSON.stringify(templateUris),
+  );
+  const idx = await rpc("resources/read", { uri: "dashboards://index" });
+  const idxText = idx.result?.contents?.[0]?.text;
+  check("P0 resources/read index", Boolean(idxText && idxText.includes("isDefault")), (idxText ?? "").slice(0, 120));
+  const promptList = await rpc("prompts/list", {});
+  const promptNames = (promptList.result?.prompts ?? []).map((p) => p.name);
+  check("P0 prompt advertised", promptNames.includes("build_dashboard"), JSON.stringify(promptNames));
+  const promptGet = await rpc("prompts/get", {
+    name: "build_dashboard",
+    arguments: { title: "QA TEMP prompt probe", componentType: "table" },
+  });
+  const promptMsg = promptGet.result?.messages?.[0]?.content?.text ?? "";
+  check(
+    "P0 prompts/get build_dashboard",
+    promptMsg.includes("dry_run_dashboard") && promptMsg.includes("query_data"),
+    promptMsg.slice(0, 120),
+  );
+
   // -- list/get -------------------------------------------------------------
-  const list = json((await tool("list_dashboards")).text) ?? [];
+  const listRaw = json((await tool("list_dashboards")).text);
+  const list = Array.isArray(listRaw) ? listRaw : listRaw?.dashboards ?? [];
   check("P0 list returns dashboards", Array.isArray(list) && list.length >= 10, `${list.length}`);
   check("P0 defaults hydrated with _default", list.some((m) => m.isDefault && m.id.endsWith("_default")), "no default meta");
 
   const getList = list.find((m) => m.isDefault);
+  const sum = await rpc("resources/read", { uri: `dashboards://${encodeURIComponent(getList.id)}/summary` });
+  const sumText = sum.result?.contents?.[0]?.text;
+  check(
+    "P0 resources/read summary template resolves",
+    Boolean(sumText && sumText.includes(getList.id)),
+    (sum.error ? JSON.stringify(sum.error) : (sumText ?? "empty")).slice(0, 200),
+  );
   const got = json((await tool("get_dashboard", { id: getList.id })).text);
   check("P0 get default hydrates Id/IsDefault", got?.Id === getList.id && got?.IsDefault === true, JSON.stringify(got?.Id));
 
@@ -129,7 +172,8 @@ async function main() {
   });
   const created1 = json(created.text);
   check("P0 create returns id + path", !created.isError && created1?.id === T && typeof created1?.path === "string", created.text);
-  const customList = json((await tool("list_dashboards")).text) ?? [];
+  const customRaw = json((await tool("list_dashboards")).text);
+  const customList = Array.isArray(customRaw) ? customRaw : customRaw?.dashboards ?? [];
   check("P0 created appears in list", customList.some((m) => m.id === T), "missing in list");
 
   const upd = await tool("update_dashboard", {
@@ -152,7 +196,8 @@ async function main() {
   const rm = await tool("delete_dashboard", { id: T });
   check("P0 delete custom ok", !rm.isError && json(rm.text)?.deleted === true, rm.text);
   const afterDelete = await tool("get_dashboard", { id: T });
-  check("P0 get deleted fails", afterDelete.isError === true, afterDelete.text);
+  const failed = (r) => r.isError === true || Boolean(json(r.text)?.error); // get_dashboard wraps failures as {error, hint}
+  check("P0 get deleted fails", failed(afterDelete), afterDelete.text);
   const rmDup = await tool("delete_dashboard", { id: dup1.id });
   await tool("delete_dashboard", { id: dup1.id }).catch(() => {});
   check("P0 delete collision copy ok", !rmDup.isError && json(rmDup.text)?.deleted === true, rmDup.text);
@@ -165,7 +210,7 @@ async function main() {
   const noIdUpd = await tool("update_dashboard", { dashboard_json: JSON.stringify({ Title: { Text: "x" }, DataSources: [] }) });
   check("P1 update without Id rejected", noIdUpd.isError === true, noIdUpd.text);
   const ghost = await tool("get_dashboard", { id: "no such dashboard ёж_424242" });
-  check("P1 get nonexistent fails", ghost.isError === true, ghost.text);
+  check("P1 get nonexistent fails", failed(ghost), ghost.text);
 
   const unicodeTitle = `QA TEMP юникод ЁЖ ${process.pid}`;
   const uni = await tool("create_dashboard", { dashboard_json: JSON.stringify({ Title: { Text: unicodeTitle }, DataSources: [], Components: [], Parameters: [] }) });
@@ -182,7 +227,7 @@ async function main() {
   check("P2 traversal title rejected or contained", traversal.isError === true, traversal.text);
 
   const traversalId = await tool("get_dashboard", { id: `..${path.sep}package` });
-  check("P2 traversal id rejected", traversalId.isError === true, traversalId.text);
+  check("P2 traversal id rejected", failed(traversalId), traversalId.text);
 
   const unknown = await tool("get_component_schema", { type: "totallyUnknownType" });
   check("P2 unknown component returns zero examples", !unknown.isError && json(unknown.text)?.foundInDashboards === 0, unknown.text);

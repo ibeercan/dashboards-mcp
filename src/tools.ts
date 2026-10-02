@@ -154,7 +154,7 @@ export function buildTools(): ToolAllocator {
         const structured = z.array(z.record(z.unknown())).safeParse(dashboards).success
           ? { dashboards }
           : { dashboards: dashboards as unknown as Record<string, unknown> };
-        return jsonResult(dashboards, structured);
+        return jsonResult(structured, structured);
       },
     },
     {
@@ -169,13 +169,23 @@ export function buildTools(): ToolAllocator {
       return jsonResult(await getDashboard(id));
     } catch (fsError) {
       try {
-        return jsonResult(await apiGetDashboard(id));
+        const apiDto = await apiGetDashboard(id);
+        // MCP spec: tool-originated failures must set isError so flag-relying
+        // clients surface them; the hint stays in content for the agent.
+        if (!apiDto) {
+          const hint = "Call list_dashboards first to pick an existing id (defaults end with `_default`).";
+          return { isError: true, content: [{ type: "text", text: JSON.stringify({ error: `Dashboard '${id}' not found`, hint }, null, 2) }] };
+        }
+        return jsonResult(apiDto);
       } catch (apiError) {
         const message = `File storage: ${(fsError as Error).message}; API: ${(apiError as Error).message}`;
-        return jsonResult(
-          { error: message, hint: "Call list_dashboards first to pick an existing id (defaults end with `_default`)." },
-          { error: message, hint: "Call list_dashboards first to pick an existing id (defaults end with `_default`)." }
-        );
+        return {
+          isError: true,
+          content: [{ type: "text", text: JSON.stringify(
+            { error: message, hint: "Call list_dashboards first to pick an existing id (defaults end with `_default`)." },
+            null, 2,
+          ) }],
+        };
       }
     }
   },

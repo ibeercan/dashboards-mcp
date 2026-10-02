@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] - 2026-10-03
+## [1.3.1] - 2026-10-03
+
+### Fixed
+- **Resource templates now actually resolve** — in v1.3.0 the three parameterized URIs were registered through the SDK's *static* resource path (a plain string selects that overload), so reads like `dashboards://<id>/summary` matched nothing. Registration now wraps each URI in `ResourceTemplate` (found by independent review).
+- `get_dashboard` failures set `isError: true` per MCP spec (the guided hint is still delivered in content).
+- `list_dashboards` text content and `structuredContent` now use the same `{dashboards}` shape.
+- TTL list cache no longer repopulates stale data from a listing that started before a write (generation counter).
+
+### Changed
+- QA battery extended to **36 scenarios** — now asserts the permanent `resources`/`resources/templates`/`prompts` surfaces (this gap let the template bug slip through); spec-smoke hard-asserts its checks instead of just logging.
 
 ### Added
 - **Resources** (`dashboards://{id}/summary`, `dashboards://{id}/components/{index}/options`, `dashboards://{id}/datasources/{index}/schema`, `dashboards://index`) — thin agent-friendly views so an agent can scan ~1 KB summaries instead of pulling 10–40 KB dashboard JSON through tools.

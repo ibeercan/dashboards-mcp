@@ -122,32 +122,58 @@ export async function listDashboards(): Promise<DashboardMeta[]> {
   const metas: DashboardMeta[] = [];
   const seen = new Set<string>();
 
-  const collect = async (dir: string, isDefault: boolean) => {
-    for (const filePath of await listFiles(dir)) {
-      const id = path.basename(filePath, FILE_EXTENSION);
-      const key = id.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      try {
-        const dto = await readDashboardFile(filePath);
-        metas.push({
-          id: isDefault ? id + DEFAULT_SUFFIX : id,
-          name: dto.Title?.Text ?? id,
-          isDefault,
-          path: filePath,
-        });
-      } catch (e) {
-        // Backend logs and skips unreadable files; mirror that so one corrupt file
-        // cannot break the whole listing.
-        process.stderr.write(
-          `[dashboards-mcp] skipping unreadable dashboard file '${filePath}': ${(e as Error).message}\n`
-        );
-      }
-    }
+  const readDir = async (dir: string, isDefault: boolean) => {
+    await Promise.all(
+      (await listFiles(dir)).map(async (filePath) => {
+        const id = path.basename(filePath, FILE_EXTENSION);
+        const key = id.toLowerCase();
+        if (seen.has(key)) return;
+        // keep first-wins semantics deterministic: defaults are collected first,
+        // so a custom duplicate here must not overwrite anything.
+        try {
+          const dto = await readDashboardFile(filePath);
+          if (seen.has(key)) return;
+          seen.add(key);
+          metas.push({
+            id: isDefault ? id + DEFAULT_SUFFIX : id,
+            name: dto.Title?.Text ?? id,
+            isDefault,
+            path: filePath,
+          });
+        } catch (e) {
+          // Backend logs and skips unreadable files; mirror that so one corrupt file
+          // cannot break the whole listing.
+          process.stderr.write(
+            `[dashboards-mcp] skipping unreadable dashboard file '${filePath}': ${(e as Error).message}\n`
+          );
+        }
+      })
+    );
   };
 
-  await collect(dirs.defaults, true);
-  await collect(dirs.custom, false);
+  await readDir(dirs.defaults, true);
+  await readDir(dirs.custom, false);
+  return metas;
+}
+
+// Agents scan dashboards repeatedly (schema lookups, summaries); re-reading every
+// 10–40 KB file on each call is pure waste. Small TTL cache, invalidated by writes.
+const LIST_TTL_MS = 5_000;
+let listCache: { metas: DashboardMeta[]; at: number } | null = null;
+// Bumped on every invalidation; an in-flight list that started before a write
+// must not repopulate stale data afterwards.
+let cacheGeneration = 0;
+
+export function invalidateListCache(): void {
+  cacheGeneration += 1;
+  listCache = null;
+}
+
+export async function listDashboardsCached(): Promise<DashboardMeta[]> {
+  if (listCache && Date.now() - listCache.at < LIST_TTL_MS) return listCache.metas;
+  const generationAtStart = cacheGeneration;
+  const metas = await listDashboards();
+  if (cacheGeneration === generationAtStart) listCache = { metas, at: Date.now() };
   return metas;
 }
 
@@ -221,19 +247,23 @@ export async function createDashboard(dashboard: DashboardDto): Promise<{ id: st
   assertSafeFileId(base);
   const dirs = await getDirs();
   await fs.mkdir(dirs.custom, { recursive: true });
-  for (;;) {
-    const id = await uniqueId(dirs, base);
-    const filePath = path.join(dirs.custom, id + FILE_EXTENSION);
-    try {
-      await fs.writeFile(filePath, JSON.stringify(toPersisted(dashboard), null, 2), {
-        encoding: "utf8",
-        flag: "wx",
-      });
-      return { id, path: filePath };
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-      // Lost a race; loop recomputes the next free suffix.
+  try {
+    for (;;) {
+      const id = await uniqueId(dirs, base);
+      const filePath = path.join(dirs.custom, id + FILE_EXTENSION);
+      try {
+        await fs.writeFile(filePath, JSON.stringify(toPersisted(dashboard), null, 2), {
+          encoding: "utf8",
+          flag: "wx",
+        });
+        return { id, path: filePath };
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+        // Lost a race; loop recomputes the next free suffix.
+      }
     }
+  } finally {
+    invalidateListCache();
   }
 }
 
@@ -249,6 +279,7 @@ export async function updateDashboard(dashboard: DashboardDto): Promise<string> 
     throw new Error(`Dashboard '${id}' not found`);
   }
   await fs.writeFile(filePath, JSON.stringify(toPersisted(dashboard), null, 2), "utf8");
+  invalidateListCache();
   return filePath;
 }
 
@@ -283,6 +314,7 @@ export async function deleteDashboard(id: string): Promise<boolean> {
     return false;
   }
   await fs.unlink(filePath);
+  invalidateListCache();
   return true;
 }
 
