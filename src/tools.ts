@@ -182,10 +182,10 @@ export function buildTools(): ToolAllocator {
       inputSchema: RawJsonInput,
       run: async (args) => {
         const dto = parseRaw(String(args["dashboard_json"]));
-        const inner = validateInnerJson(dto);
+        const { innerJsonFields } = validateInnerJson(dto);
         const roundTrip = JSON.parse(JSON.stringify(dto));
         const ok = DashboardSchema.safeParse(roundTrip).success;
-        return jsonResult({ valid: ok, innerJsonFields: inner, roundTripPasses: ok });
+        return jsonResult({ valid: ok, innerJsonFields, roundTripPasses: ok });
       },
     },
     {
@@ -229,13 +229,13 @@ export function buildTools(): ToolAllocator {
       inputSchema: RawJsonInput,
       run: async (args) => {
         const dto = parseRaw(String(args["dashboard_json"]));
-        const inner = validateInnerJson(dto);
+        const { innerJsonFields } = validateInnerJson(dto);
         const id = typeof dto.Id === "string" && dto.Id.length > 0 ? dto.Id : "";
         const preview =
           id.length > 0
             ? { operation: "update", ...(await previewUpdate(id)) }
             : { operation: "create", ...(await previewCreate(dto)) };
-        return jsonResult({ valid: true, innerJsonFields: inner, preview });
+        return jsonResult({ valid: true, innerJsonFields, preview });
       },
     },
     {
