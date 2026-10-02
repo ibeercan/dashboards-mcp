@@ -1,83 +1,98 @@
-﻿<div align="center">
+<h1 align="center">dashboards-mcp</h1>
 
-# dashboards-mcp
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/MCP-1.x-black" alt="MCP" />
+  <img src="https://img.shields.io/badge/tools-14-green" alt="tools" />
+  <img src="https://img.shields.io/badge/round--trip-10%2F10%20fixtures-brightgreen" alt="verification" />
+</p>
 
-**MCP-СЃРµСЂРІРµСЂ РґР»СЏ AI-СЂР°Р·СЂР°Р±РѕС‚РєРё Рё С‚РµСЃС‚РёСЂРѕРІР°РЅРёСЏ РґР°С€Р±РѕСЂРґРѕРІ [Dispather (Р”РёСЃРїРµС‚С‡РµСЂ)](https://github.com/ibeercan)** вЂ” full-stack BI-РєРѕРЅСЃС‚СЂСѓРєС‚РѕСЂР° Рё СЂР°РЅС‚Р°Р№РјР° РїСЂРѕРёР·РІРѕРґСЃС‚РІРµРЅРЅС‹С… РґР°С€Р±РѕСЂРґРѕРІ.
+<p align="center"><b>Русская версия</b> | <a href="README.en.md">English</a></p>
 
-[Русская версия](README.md) | [English](README.en.md)
-[Русская версия](README.md) | [English](README.en.md)
-[Русская версия](README.md) | [English](README.en.md)
-[Русская версия](README.md) | [English](README.en.md)
+---
 
-[Русская версия](README.md) | [English](README.en.md)
+MCP-сервер для разработки и тестирования дашбордов BI **Dispather (Dashboards)** силами AI-агента: CRUD, валидация, запросы данных, схемы БД, тесты фронтенда.
 
-</div>
+## Транспорты
 
-## РћР±Р·РѕСЂ
+| Режим | Запуск | Кому подходит |
+|---|---|---|
+| **stdio** (по умолчанию) | `node dist/index.js` | локальные CLI-агенты (opencode, Claude Code, Codex) |
+| **Streamable HTTP** | `DASHBOARDS_MCP_HTTP_PORT=3456 node dist/index.js` | удалённые/веб-агенты, несколько клиентов |
 
-`dashboards-mcp` РѕР±С‰Р°РµС‚СЃСЏ РїРѕ [Model Context Protocol](https://modelcontextprotocol.io) С‡РµСЂРµР· **stdio**, РїРѕСЌС‚РѕРјСѓ Р»СЋР±РѕР№ MCP-СЃРѕРІРјРµСЃС‚РёРјС‹Р№ AI-Р°РіРµРЅС‚ РјРѕР¶РµС‚ СЂР°Р±РѕС‚Р°С‚СЊ СЃ РґР°С€Р±РѕСЂРґР°РјРё С‚Р°Рє Р¶Рµ, РєР°Рє СЌС‚Рѕ РґРµР»Р°РµС‚ BI-Р±СЌРєРµРЅРґ вЂ” Р±РµР· UI.
+## Два источника данных
 
-Р”РІР° РІР°СЂРёР°РЅС‚Р° РёСЃС‚РѕС‡РЅРёРєР° РґР°РЅРЅС‹С…:
+| Режим | Включение | Поведение |
+|---|---|---|
+| **Файловый** | `DASHBOARDS_ROOT` | чтение/запись `App_Data/Dashboards` и `App_Data/DefaultDashboards` |
+| **HTTP API** | `DASHBOARDS_API_URL` | вызовы живого бэкенда `/api/Dashboards`, `/api/Data`, `/api/TablesInfo` |
 
-| Р РµР¶РёРј | РСЃС‚РѕС‡РЅРёРє | РќР°Р·РЅР°С‡РµРЅРёРµ |
-|------|--------|---------|
-| **Р¤Р°Р№Р»С‹** | `App_Data/` РЅР° РґРёСЃРєРµ | РџРѕРІСЃРµРґРЅРµРІРЅР°СЏ СЂР°Р·СЂР°Р±РѕС‚РєР° РґР°С€Р±РѕСЂРґРѕРІ |
-| **HTTP API** | Р·Р°РїСѓС‰РµРЅРЅС‹Р№ Р±СЌРєРµРЅРґ (`DASHBOARDS_API_URL`) | РРЅС‚РµРіСЂР°С†РёРѕРЅРЅРѕРµ С‚РµСЃС‚РёСЂРѕРІР°РЅРёРµ Р¶РёРІРѕР№ СЃРёСЃС‚РµРјС‹ |
+## Инструменты (14)
 
-## Р§С‚Рѕ СѓРјРµРµС‚
+| Инструмент | Описание |
+|---|---|
+| `list_dashboards` | все дашборды (дефолтные `_default` + кастомные) |
+| `get_dashboard` | полный JSON по id (файл → HTTP API fallback) |
+| `create_dashboard` | создать кастомный (ID из `Title.Text`, коллизия `" (N)"`) |
+| `update_dashboard` | обновить кастомный; `_default` — только чтение |
+| `delete_dashboard` | удалить кастомный |
+| `dry_run_dashboard` | предпросмотр create/update без записи: валидация + вычисляемый ID / проверка существования |
+| `validate_dashboard` | Zod-схема + вложенный JSON (Options/Interactivity/Layout) + round-trip |
+| `get_component_types` | 17 канонических типов компонентов |
+| `get_component_schema` | реальные примеры Options для типа из существующих дашбордов |
+| `validate_layout` | валидация react-grid-layout JSON |
+| `query_data` | **POST /api/Data** — пробные запросы по DataSource дашборда (реальные данные) |
+| `get_tables_info` | **POST /api/TablesInfo** — список таблиц/представлений, колонки и связи |
+| `run_tests` | Jest-тесты фронтенда (`FrontendApp`, jest-puppeteer) |
+| `export_dashboard` | pretty-print JSON экспорт |
 
-| РРЅСЃС‚СЂСѓРјРµРЅС‚ | РћРїРёСЃР°РЅРёРµ |
-|------|-------------|
-| `list_dashboards` | РЎРїРёСЃРѕРє РІСЃРµС… РґР°С€Р±РѕСЂРґРѕРІ (РґРµС„РѕР»С‚РЅС‹Рµ `_default` + РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёРµ) |
-| `get_dashboard` | РџРѕР»РЅС‹Р№ JSON РґР°С€Р±РѕСЂРґР° РїРѕ id (СЃРЅР°С‡Р°Р»Р° С„Р°Р№Р», РїРѕС‚РѕРј API) |
-| `create_dashboard` | РЎРѕР·РґР°РЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ РґР°С€Р±РѕСЂРґР°, ID/РєРѕР»Р»РёР·РёРё РєР°Рє РІ Р±СЌРєРµРЅРґРµ |
-| `update_dashboard` | РћР±РЅРѕРІР»РµРЅРёРµ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ РґР°С€Р±РѕСЂРґР° |
-| `delete_dashboard` | РЈРґР°Р»РµРЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ РґР°С€Р±РѕСЂРґР° (`_default` вЂ” С‚РѕР»СЊРєРѕ С‡С‚РµРЅРёРµ) |
-| `validate_dashboard` | Zod-СЃС…РµРјР° + РІР»РѕР¶РµРЅРЅС‹Р№ JSON + round-trip |
-| `get_component_types` | 17 РєР°РЅРѕРЅРёС‡РµСЃРєРёС… С‚РёРїРѕРІ РєРѕРјРїРѕРЅРµРЅС‚РѕРІ |
-| `validate_layout` | Р’Р°Р»РёРґР°С†РёСЏ JSON react-grid-layout |
-| `run_tests` | Jest-С‚РµСЃС‚С‹ С„СЂРѕРЅС‚РµРЅРґР° (`FrontendApp`) |
-| `export_dashboard` | Р¤РѕСЂРјР°С‚РёСЂРѕРІР°РЅРЅС‹Р№ JSON-СЌРєСЃРїРѕСЂС‚ |
+## Правила предметной области (зеркалят бэкенд)
 
-## РџСЂР°РІРёР»Р° РїСЂРµРґРјРµС‚РЅРѕР№ РѕР±Р»Р°СЃС‚Рё (Р·РµСЂРєР°Р»Рѕ Р±СЌРєРµРЅРґР°)
+- 🆔 ID дашборда = `Title.Text` дословно (без слага), расширение `.json`, коллизия — суффикс `" (N)"`, регистронезависимая уникальность
+- 🔒 Дефолтные дашборды (`App_Data/DefaultDashboards/`) — только чтение; MCP никогда не пишет в эту директорию
+- 🗂 Кастомные дашборды — `App_Data/Dashboards/`
+- 📦 `Options`, `Interactivity`, `Layout` — JSON-в-JSON строки: парсятся и валидируются как вложенный JSON
+- ✉️ HTTP API оборачивает ответы в `CommonResponse<T, ResponseBaseError>` и возвращает HTTP 200 даже при ошибке (проверяется envelope, camelCase/PascalCase — оба)
 
-Р­С‚Рѕ РЅРµ РґРѕРіРѕРІРѕСЂС‘РЅРЅРѕСЃС‚Рё вЂ” СЌС‚Рѕ С‚РѕС‡РЅРѕРµ РїРѕРІРµРґРµРЅРёРµ `DashboardsFileBaseStorage`:
-
-- рџ”‘ **ID = `Title.Text` РґРѕСЃР»РѕРІРЅРѕ** (Р±РµР· СЃР»Р°РіРёС„РёРєР°С†РёРё), СЂР°СЃС€РёСЂРµРЅРёРµ `.json`
-- рџ”Ѓ **РЎСѓС„С„РёРєСЃ РєРѕР»Р»РёР·РёР№ `" (N)"`**, СѓРЅРёРєР°Р»СЊРЅРѕСЃС‚СЊ Р±РµР· СѓС‡С‘С‚Р° СЂРµРіРёСЃС‚СЂР°
-- рџ”’ **`_default` = С‚РѕР»СЊРєРѕ С‡С‚РµРЅРёРµ**: РґРµС„РѕР»С‚РЅС‹Рµ РґР°С€Р±РѕСЂРґС‹ РІ `App_Data/DefaultDashboards/`, РїСЂРё С‡С‚РµРЅРёРё РїРѕР»СѓС‡Р°СЋС‚ СЃСѓС„С„РёРєСЃ `_default`, СЃРµСЂРІРµСЂ С‚СѓРґР° РЅРµ РїРёС€РµС‚
-- рџ“¦ **РџРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёРµ РґР°С€Р±РѕСЂРґС‹** вЂ” РІ `App_Data/Dashboards/`
-- рџ§… **JSON РІ JSON**: `Options`, `Interactivity` (Рё Р»РµРіР°СЃРё `Layout`) вЂ” СЃС‚СЂРѕРєРё СЃ JSON РІРЅСѓС‚СЂРё, РїР°СЂСЃСЏС‚СЃСЏ Рё РІР°Р»РёРґРёСЂСѓСЋС‚СЃСЏ РєР°Рє РІР»РѕР¶РµРЅРЅС‹Р№ JSON
-- вњ‰пёЏ **РљРѕРЅРІРµСЂС‚ API**: HTTP-РѕС‚РІРµС‚С‹ РѕР±РѕСЂР°С‡РёРІР°СЋС‚СЃСЏ РІ `CommonResponse<T, ResponseBaseError>` Рё РІРѕР·РІСЂР°С‰Р°СЋС‚ **HTTP 200 РґР°Р¶Рµ РїСЂРё РѕС€РёР±РєРµ** вЂ” РєР»РёРµРЅС‚ СЌС‚Рѕ СЂР°СЃРїР°РєРѕРІС‹РІР°РµС‚
-
-## Р‘С‹СЃС‚СЂС‹Р№ СЃС‚Р°СЂС‚
+## Быстрый старт
 
 ```bash
-# 1. РЈСЃС‚Р°РЅРѕРІРєР°
 npm install
-
-# 2. РЎР±РѕСЂРєР°
 npm run build
 ```
 
-## РџСЂРѕРІРµСЂРєР°
+## Проверка
 
 ```bash
-npm run verify            # round-trip РїРѕ РІСЃРµРј 10 РґРµС„РѕР»С‚РЅС‹Рј С„РёРєСЃС‚СѓСЂР°Рј
-node scripts/smoke.cjs    # smoke-С‚РµСЃС‚ MCP-РїСЂРѕС‚РѕРєРѕР»Р° (initialize + tools/list + tools/call)
+npm run verify          # round-trip валидация всех 10 дефолтных дашбордов
+node scripts/smoke.cjs  # MCP smoke: initialize, tools/list, tools/call
 ```
 
-## РџРѕРґРєР»СЋС‡РµРЅРёРµ AI-Р°РіРµРЅС‚Р°
+## Docker
 
-РџРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ:
+```bash
+docker build -t dashboards-mcp .
 
-| РџРµСЂРµРјРµРЅРЅР°СЏ | РћР±СЏР·Р°С‚РµР»СЊРЅР°СЏ | РћРїРёСЃР°РЅРёРµ |
-|----------|-------------|-------------|
-| `DASHBOARDS_ROOT` | РґР° (РёР»Рё Р°РІС‚Рѕ-РїРѕРёСЃРє) | РљРѕСЂРµРЅСЊ Р±СЌРєРµРЅРґР°, СЃРѕРґРµСЂР¶Р°С‰РёР№ `App_Data/` |
-| `DASHBOARDS_API_URL` | РЅРµС‚ | Р‘Р°Р·Р° Р·Р°РїСѓС‰РµРЅРЅРѕРіРѕ Р±СЌРєРµРЅРґР° вЂ” РІРєР»СЋС‡Р°РµС‚ СЂРµР¶РёРј HTTP API |
-| `DASHBOARDS_API_TIMEOUT_MS` | РЅРµС‚ | РўР°Р№РјР°СѓС‚ API, РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ `60000` |
+# stdio-режим (stdin/stdout подключение можно оставить агенту)
+docker run -i --rm -v <путь>/Dashboards/Dashboards:/data dashboards-mcp
 
-Р РµРіРёСЃС‚СЂР°С†РёСЏ РІ [opencode](https://opencode.ai):
+# HTTP-режим
+docker run -d --rm -p 3456:3456 \
+  -e DASHBOARDS_MCP_HTTP_PORT=3456 \
+  -v <путь>/Dashboards/Dashboards:/data \
+  dashboards-mcp
+```
+
+## Переменные окружения
+
+| Переменная | Обязательна | Описание |
+|---|---|---|
+| `DASHBOARDS_ROOT` | да (или авто-поиск) | корень бэкенда с `App_Data/` |
+| `DASHBOARDS_API_URL` | нет | базовый URL бэкенда (например `http://localhost:8014`) |
+| `DASHBOARDS_MCP_HTTP_PORT` | нет | режим Streamable HTTP вместо stdio |
+| `DASHBOARDS_API_TIMEOUT_MS` | нет | таймаут API, по умолчанию `60000` |
+
+## Подключение AI-агента (opencode)
 
 ```jsonc
 // ~/.config/opencode/opencode.json
@@ -85,36 +100,35 @@ node scripts/smoke.cjs    # smoke-С‚РµСЃС‚ MCP-РїСЂРѕС‚РѕР
   "mcp": {
     "dashboards-mcp": {
       "type": "local",
-      "command": ["node", "<РїСѓС‚СЊ>/mcp-server/dist/index.js"],
-      "environment": { "DASHBOARDS_ROOT": "<РїСѓС‚СЊ>/Dashboards/Dashboards" }
+      "command": ["node", "<путь>/mcp-server/dist/index.js"],
+      "environment": {
+        "DASHBOARDS_ROOT": "<путь>/Dashboards/Dashboards",
+        "DASHBOARDS_API_URL": "http://localhost:8014"
+      }
     }
   }
 }
 ```
 
-## РЎС‚СЂСѓРєС‚СѓСЂР° РїСЂРѕРµРєС‚Р°
+## Структура проекта
 
 ```
 src/
-в”њв”Ђв”Ђ index.ts        # РўРѕС‡РєР° РІС…РѕРґР° MCP-СЃРµСЂРІРµСЂР° (stdio)
-в”њв”Ђв”Ђ tools.ts        # 10 MCP-РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ
-в”њв”Ђв”Ђ schemas.ts      # Zod-СЃС…РµРјС‹ + РЅРѕСЂРјР°Р»РёР·Р°С†РёСЏ СЂРµРіРёСЃС‚СЂР° РєР»СЋС‡РµР№
-в”њв”Ђв”Ђ storage.ts      # Р¤Р°Р№Р»РѕРІС‹Р№ РїСЂРѕРІР°Р№РґРµСЂ С…СЂР°РЅРёР»РёС‰Р°
-в”њв”Ђв”Ђ api-client.ts   # РљР»РёРµРЅС‚ HTTP API
-в”њв”Ђв”Ђ types.ts        # TypeScript-С‚РёРїС‹ DTO
-в””в”Ђв”Ђ verify.ts       # РЎРєСЂРёРїС‚ round-trip-РїСЂРѕРІРµСЂРєРё
+├── index.ts        # точка входа: stdio или streamable HTTP
+├── tools.ts        # 14 инструментов MCP
+├── schemas.ts      # Zod-схемы + нормализация регистров ключей
+├── storage.ts      # файловое хранилище
+├── api-client.ts   # HTTP API клиент
+├── types.ts        # TypeScript DTO
+└── verify.ts       # скрипт round-trip верификации
 scripts/
-в””в”Ђв”Ђ smoke.cjs       # Smoke-С‚РµСЃС‚ MCP-РїСЂРѕС‚РѕРєРѕР»Р°
+└── smoke.cjs       # smoke тест MCP протокола
 ```
 
-## РСЃС‚РѕСЂРёСЏ РІРµСЂСЃРёР№
+## История версий
 
-РСЃС‚РѕСЂРёСЏ РёР·РјРµРЅРµРЅРёР№ вЂ” РІ [`CHANGELOG.md`](CHANGELOG.md).
+Смотри [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-<div align="center">
-
-РЎРґРµР»Р°РЅРѕ СЃ [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
-
-</div>
+Сделано с [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)

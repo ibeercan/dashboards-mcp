@@ -1,83 +1,98 @@
-﻿<div align="center">
+<h1 align="center">dashboards-mcp</h1>
 
-# dashboards-mcp
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/MCP-1.x-black" alt="MCP" />
+  <img src="https://img.shields.io/badge/tools-14-green" alt="tools" />
+  <img src="https://img.shields.io/badge/round--trip-10%2F10%20fixtures-brightgreen" alt="verification" />
+</p>
 
-**MCP server for AI-assisted development and testing of [Dispather (Р”РёСЃРїРµС‚С‡РµСЂ)](https://github.com/ibeercan) dashboards** вЂ” a full-stack BI dashboard designer and runtime for manufacturing.
+<p align="center"><a href="README.md">Русская версия</a> | <b>English</b></p>
 
-[Русская версия](README.md) | [English](README.en.md)
-[Русская версия](README.md) | [English](README.en.md)
-[Русская версия](README.md) | [English](README.en.md)
-[Русская версия](README.md) | [English](README.en.md)
+---
 
-[Русская версия](README.md) | [English](README.en.md)
+MCP server for AI-assisted development and testing of the **Dispather (Dashboards)** BI dashboards: CRUD, validation, real data queries, DB schemas, frontend tests.
 
-</div>
+## Transports
 
-## Overview
+| Mode | Launch | Best for |
+|---|---|---|
+| **stdio** (default) | `node dist/index.js` | local CLI agents (opencode, Claude Code, Codex) |
+| **Streamable HTTP** | `DASHBOARDS_MCP_HTTP_PORT=3456 node dist/index.js` | remote/web agents, multiple clients |
 
-`dashboards-mcp` speaks the [Model Context Protocol](https://modelcontextprotocol.io) over **stdio**, so any MCP-capable AI agent can work with dashboards the same way the BI backend does вЂ” no UI required.
+## Two data targets
 
-Two data targets:
+| Mode | Enabled by | Behavior |
+|---|---|---|
+| **File storage** | `DASHBOARDS_ROOT` | read/write `App_Data/Dashboards` and `App_Data/DefaultDashboards` |
+| **HTTP API** | `DASHBOARDS_API_URL` | live backend calls: `/api/Dashboards`, `/api/Data`, `/api/TablesInfo` |
 
-| Mode | Target | Use for |
-|------|--------|---------|
-| **File storage** | `App_Data/` on disk | Day-to-day dashboard development |
-| **HTTP API** | running backend (`DASHBOARDS_API_URL`) | Integration-testing against the live system |
-
-## What it can do
+## Tools (14)
 
 | Tool | Description |
-|------|-------------|
-| `list_dashboards` | List all dashboards (defaults with `_default` suffix + custom) |
-| `get_dashboard` | Get full dashboard JSON by id (file first, API fallback) |
-| `create_dashboard` | Create custom dashboard, backend-compatible ID & collision rules |
-| `update_dashboard` | Update an existing custom dashboard |
-| `delete_dashboard` | Delete custom dashboard (`_default` ones are read-only) |
-| `validate_dashboard` | Zod schema + inner JSON check + round-trip |
-| `get_component_types` | The 17 canonical component types |
-| `validate_layout` | Validate a react-grid-layout JSON string |
-| `run_tests` | Run frontend Jest tests (`FrontendApp`) |
-| `export_dashboard` | Pretty-printed JSON export |
+|---|---|
+| `list_dashboards` | all dashboards (default `_default` + custom) |
+| `get_dashboard` | full JSON by id (file → HTTP API fallback) |
+| `create_dashboard` | create a custom dashboard (ID from `Title.Text`, `" (N)"` collision suffix) |
+| `update_dashboard` | update a custom dashboard; `_default` are read-only |
+| `delete_dashboard` | delete a custom dashboard |
+| `dry_run_dashboard` | preview create/update without writing: validation + computed ID / existence check |
+| `validate_dashboard` | Zod schema + inner JSON (Options/Interactivity/Layout) + round-trip |
+| `get_component_types` | the 17 canonical component types |
+| `get_component_schema` | real-world Options examples for a type, taken from existing dashboards |
+| `validate_layout` | react-grid-layout JSON validation |
+| `query_data` | **POST /api/Data** — trial queries using a dashboard DataSource (real data) |
+| `get_tables_info` | **POST /api/TablesInfo** — table/view names, columns and relations |
+| `run_tests` | frontend Jest tests (`FrontendApp`, jest-puppeteer) |
+| `export_dashboard` | pretty-printed JSON export |
 
 ## Domain rules mirrored from the backend
 
-These are not conventions вЂ” they are exact behaviors of `DashboardsFileBaseStorage`:
-
-- рџ”‘ **ID = `Title.Text` verbatim** (no slugification), `.json` extension
-- рџ”Ѓ **Collision suffix `" (N)"`**, case-insensitive uniqueness
-- рџ”’ **`_default` = read-only**: default dashboards live in `App_Data/DefaultDashboards/`, get the `_default` suffix on read, and the server never writes there
-- рџ“¦ **Custom dashboards** live in `App_Data/Dashboards/`
-- рџ§… **JSON-in-JSON**: `Options`, `Interactivity` (and legacy `Layout`) are strings containing JSON вЂ” parsed and validated as inner JSON
-- вњ‰пёЏ **API envelope**: HTTP responses are wrapped in `CommonResponse<T, ResponseBaseError>` and return **HTTP 200 even on errors** вЂ” the client unwraps them
+- 🆔 Dashboard ID = `Title.Text` verbatim (no slugification), `.json` extension, `" (N)"` suffix on collision, case-insensitive uniqueness
+- 🔒 Default dashboards (`App_Data/DefaultDashboards/`) are read-only; MCP never writes to that directory
+- 🗂 Custom dashboards live in `App_Data/Dashboards/`
+- 📦 `Options`, `Interactivity`, `Layout` are JSON-in-JSON strings — parsed and validated as inner JSON
+- ✉️ The HTTP API wraps responses in `CommonResponse<T, ResponseBaseError>` and returns HTTP 200 even on errors (the envelope is checked; camelCase/PascalCase both accepted)
 
 ## Getting started
 
 ```bash
-# 1. Install
 npm install
-
-# 2. Build
 npm run build
 ```
 
 ## Verification
 
 ```bash
-npm run verify            # round-trip validation over all 10 default fixtures
-node scripts/smoke.cjs    # MCP protocol smoke test (initialize + tools/list + tools/call)
+npm run verify          # round-trip validation over all 10 default dashboard fixtures
+node scripts/smoke.cjs  # MCP smoke: initialize, tools/list, tools/call
 ```
 
-## Connect your AI agent
+## Docker
 
-Environment variables:
+```bash
+docker build -t dashboards-mcp .
+
+# stdio mode (let the agent attach to stdin/stdout)
+docker run -i --rm -v <path>/Dashboards/Dashboards:/data dashboards-mcp
+
+# HTTP mode
+docker run -d --rm -p 3456:3456 \
+  -e DASHBOARDS_MCP_HTTP_PORT=3456 \
+  -v <path>/Dashboards/Dashboards:/data \
+  dashboards-mcp
+```
+
+## Environment variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DASHBOARDS_ROOT` | yes (or auto-probe) | Dashboards backend root containing `App_Data/` |
-| `DASHBOARDS_API_URL` | no | Running backend base URL вЂ” enables HTTP API mode |
+| `DASHBOARDS_API_URL` | no | running backend base URL (e.g. `http://localhost:8014`) |
+| `DASHBOARDS_MCP_HTTP_PORT` | no | Streamable HTTP mode instead of stdio |
 | `DASHBOARDS_API_TIMEOUT_MS` | no | API timeout, default `60000` |
 
-Register with [opencode](https://opencode.ai):
+## Connect your AI agent (opencode)
 
 ```jsonc
 // ~/.config/opencode/opencode.json
@@ -86,7 +101,10 @@ Register with [opencode](https://opencode.ai):
     "dashboards-mcp": {
       "type": "local",
       "command": ["node", "<path>/mcp-server/dist/index.js"],
-      "environment": { "DASHBOARDS_ROOT": "<path>/Dashboards/Dashboards" }
+      "environment": {
+        "DASHBOARDS_ROOT": "<path>/Dashboards/Dashboards",
+        "DASHBOARDS_API_URL": "http://localhost:8014"
+      }
     }
   }
 }
@@ -96,25 +114,21 @@ Register with [opencode](https://opencode.ai):
 
 ```
 src/
-в”њв”Ђв”Ђ index.ts        # MCP server entry point (stdio)
-в”њв”Ђв”Ђ tools.ts        # 10 MCP tool implementations
-в”њв”Ђв”Ђ schemas.ts      # Zod schemas + key-case normalization
-в”њв”Ђв”Ђ storage.ts      # File-based storage provider
-в”њв”Ђв”Ђ api-client.ts   # HTTP API client
-в”њв”Ђв”Ђ types.ts        # TypeScript DTO types
-в””в”Ђв”Ђ verify.ts       # Round-trip verification script
+├── index.ts        # entry point: stdio or streamable HTTP
+├── tools.ts        # 14 MCP tools
+├── schemas.ts      # Zod schemas + key-care normalization
+├── storage.ts      # file-based storage provider
+├── api-client.ts   # HTTP API client
+├── types.ts        # TypeScript DTOs
+└── verify.ts       # round-trip verification script
 scripts/
-в””в”Ђв”Ђ smoke.cjs       # MCP protocol smoke test
+└── smoke.cjs       # MCP protocol smoke test
 ```
 
 ## Release history
 
-Release history and planned improvements live in [`CHANGELOG.md`](CHANGELOG.md).
+See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-<div align="center">
-
-Built with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)
-
-</div>
+Made with [Sisyphus](https://github.com/code-yeongyu/oh-my-openagent)

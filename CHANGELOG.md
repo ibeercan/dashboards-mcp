@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-10-03
+
+### Added
+- `dry_run_dashboard` — preview create/update without writing: full validation plus the backend-compatible id (`Title.Text` + `" (N)"` collision) or an existence/read-only check.
+- `query_data` — execute trial data requests against the live backend (`POST /api/Data`); verified against a running BI instance.
+- `get_tables_info` — database schema via `POST /api/TablesInfo`: table/view names, columns, relations.
+- `get_component_schema` — real-world `Options` examples for a component type, extracted from existing dashboards.
+- Streamable HTTP transport: set `DASHBOARDS_MCP_HTTP_PORT` to serve over HTTP instead of stdio.
+- Dockerfile (multi-stage, node:22-alpine; mount the backend root as `/data`).
+
+### Fixed
+- HTTP envelope parsing is now case-insensitive: ASP.NET serializes `CommonResponse` camelCase (`{data, error}`), errors now surface backend error messages.
+
+### Changed
+- README rewritten bilingually (`README.md` — Русский, `README.en.md` — English) with transports, Docker and the 14-tool reference.
+
 ## [1.0.0] - 2026-10-02
 
 ### Added
