@@ -71,20 +71,38 @@ function parseRaw(raw: string): DashboardDto {
   return result.data;
 }
 
+// White-screen prevention: the frontend JSON.parse()s Layout / Options / Interactivity.
+// An empty string "" is invalid JSON and crashes rendering (blank screen), so it must fail here.
+function requireInnerJson(field: string, value: unknown): Record<string, unknown> | null {
+  if (value === undefined || value === null) return null; // schema allows absence
+  const text = String(value);
+  if (text.trim() === "") {
+    throw new Error(
+      `${field} is an empty string — the frontend JSON.parse()s it and renders a blank screen. ` +
+        `Use a minimal valid JSON string (e.g. "{}" for Options).`
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`${field} is not valid JSON-in-JSON: ${(e as Error).message}`);
+  }
+}
+
 function validateInnerJson(dto: DashboardDto): { innerJsonFields: string[] } {
   const innerFields: string[] = [];
 
-  const layout = parseInnerJson("Layout", dto.Layout);
+  const layout = requireInnerJson("Layout", dto.Layout);
   if (layout) {
     innerFields.push("Layout");
     if (typeof layout["layouts"] === "string") {
       throw new Error("Layout.inner.layouts must be an object, not a JSON string");
     }
   }
-  if (parseInnerJson("Options", dto.Options)) innerFields.push("Options");
+  if (requireInnerJson("Options", dto.Options)) innerFields.push("Options");
 
   dto.Components?.forEach((component, index) => {
-    if (parseInnerJson("Interactivity", component.Interactivity)) {
+    if (requireInnerJson("Interactivity", component.Interactivity)) {
       innerFields.push(`Components[${index}].Interactivity`);
     }
   });
@@ -399,7 +417,7 @@ export function buildTools(): ToolAllocator {
       name: "query_data",
       title: "Execute data request",
       description:
-        "Execute a data request against the running backend: POST /api/Data. Pass the JSON body of DataRequest (DataSource with Connection+Queries, DataFields, Filter, Sorting, Datasets, Parameters) вЂ” copy it from the dashboard JSON DataSource. dataFields must carry unique per-field Ids (1, 2, 3, вЂ¦).",
+        "Execute a data request against the running backend: POST /api/Data. Pass the JSON body of DataRequest (DataSource with Connection+Queries, DataFields, Filter, Sorting, Datasets, Parameters) — copy it from the dashboard JSON DataSource. Contract: dataFields must carry unique per-field Ids (1, 2, 3, …) and each DataSourceFieldId must match a query column id; filter is an object {itemType:0, logicType:0, children:[]} (never null); datasets like [{name:'main', values:[{dataFieldId:1}]}]. If the query has parameters with ?Name references (isExpression), pass parameters [{id, name, value, valueType}] from the dashboard's Parameters — otherwise the backend returns error 105.",
       inputSchema: { data_json: z.string().min(2) },
       annotations: QUERY,
       run: async (args) => jsonResult(await apiQueryData(parseJsonArg("data_json", args["data_json"]))),

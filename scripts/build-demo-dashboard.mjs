@@ -89,7 +89,7 @@ const dashboard = {
   Layout:
     '{"lg":[{"type":0,"static":false,"isResizable":true,"isDraggable":true,"minW":5,"minH":5,"maxW":60,"maxH":48,"i":"1","x":0,"y":0,"w":30,"h":24,"resizeHandles":["s"]}]}',
   Parameters: [],
-  Options: "",
+  Options: "{}", // never "" — the frontend JSON.parse()s it and renders a blank screen
 };
 
 fs.writeFileSync("scripts/demo-dashboard.json", JSON.stringify(dashboard, null, 2), "utf8");

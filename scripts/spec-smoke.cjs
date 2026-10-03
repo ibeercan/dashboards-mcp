@@ -71,7 +71,7 @@ function assert(name, cond, detail) {
   assert("build_dashboard prompt advertised", (promptList.result?.prompts ?? []).some((p) => p.name === "build_dashboard"), JSON.stringify(promptList.result?.prompts));
   const c = await rpc("tools/call", {
     name: "validate_dashboard",
-    arguments: { dashboard_json: '{"Title":{"Text":"x"},"DataSources":[],"Components":[],"Layout":"","Parameters":[]}' },
+      arguments: { dashboard_json: '{"Title":{"Text":"x"},"DataSources":[],"Components":[],"Layout":"{\\"lg\\":[]}","Parameters":[],"Options":"{}"}' },
   });
   assert(
     "structuredContent round-trips",

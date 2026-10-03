@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-10-03
+
+White-screen prevention and query_data contract documentation, from live-BI debugging on the emulator instance (root cause chain: empty top-level `Options` string → frontend `JSON.parse` crash; missing dashboard `parameters` → backend error 105).
+
+### Fixed
+
+- `validate_dashboard` / `dry_run_dashboard` now reject empty or blank `Layout` / `Options` / `Interactivity` strings — the frontend `JSON.parse()`s them and renders a blank screen (the exact white-screen class found on the emulator). Unparseable JSON-in-JSON now fails with a clear message instead of being silently skipped.
+- `scripts/build-demo-dashboard.mjs` writes `Options: "{}"` instead of `""` (source of the white-screen demo).
+
+### Documented
+
+- `query_data` tool description now carries the full `/api/Data` contract: unique per-field `Id`s, `DataSourceFieldId` must match a query column id, `filter` is an object `{itemType:0, logicType:0, children:[]}` (never null), datasets shape, and the `parameters` requirement when the query has `?Name` references (otherwise backend error 105).
+
+### Verified
+
+- Live emulator end-to-end: cloned working dashboard renders; `QA Emulator Data` dashboard built from emulator DB metadata (real columns via `/api/TablesInfo/tablesInfo`) with dashboard `Parameters` (ID=3041) — `POST /api/Data` returns 200 with datasets.
+- Gates: build clean, round-trip 10/10, spec-smoke 10/10, QA 36/36.
+
 ## [1.4.1] - 2026-10-03
 
 Hotfix from post-release review of v1.4.0 (Oracle, verdict FAIL → fixed).
